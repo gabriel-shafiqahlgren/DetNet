@@ -15,6 +15,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import MultipleLocator
 from matplotlib.patches import FancyArrowPatch
 from matplotlib.pyplot import close
+from matplotlib import rc, rcParams
 
 from scipy.interpolate import griddata
 from mpl_toolkits.mplot3d import Axes3D
@@ -22,7 +23,14 @@ from mpl_toolkits.mplot3d import proj3d
 
 from utils.help_methods import get_detector_angles
 
-TEXT_SIZE = 17
+TEXT_SIZE = 22
+
+font = {'family' : 'STIXGeneral',
+        'weight' : 'normal',
+        'size'   : TEXT_SIZE}
+rc('font', **font)
+rcParams['mathtext.fontset'] = 'stix'
+rcParams['font.family'] = 'STIXGeneral'
 
 def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
     new_cmap = LinearSegmentedColormap.from_list(
@@ -30,7 +38,7 @@ def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
         cmap(np.linspace(minval, maxval, n)))
     return new_cmap
 
-def plot_predictions(y, y_, bins=500, show_detector_angles=False):
+def plot_predictions(y, y_, bins=500, show_detector_angles=True):
     """
     Use to plot a models predictions in similar format as previous years, i.e. 2d histograms ("lasersvärd")
     
@@ -83,12 +91,12 @@ def plot_predictions(y, y_, bins=500, show_detector_angles=False):
         axs[2].scatter(detector_phi, detector_phi, marker='x')
     
     
-    axs[0].set_xlabel('Correct E [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_xlabel('Correct \u03F4', fontsize = TEXT_SIZE)
-    axs[2].set_xlabel('Correct \u03A6', fontsize = TEXT_SIZE)
-    axs[0].set_ylabel('Reconstructed E [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_ylabel('Reconstructed \u03F4', fontsize = TEXT_SIZE)
-    axs[2].set_ylabel('Reconstructed E \u03A6', fontsize = TEXT_SIZE)
+    axs[0].set_xlabel('Correct $E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_xlabel('Correct $\Theta$', fontsize = TEXT_SIZE)
+    axs[2].set_xlabel('Correct $\Phi$', fontsize = TEXT_SIZE)
+    axs[0].set_ylabel('Reconstructed $E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_ylabel('Reconstructed $\Theta$', fontsize = TEXT_SIZE)
+    axs[2].set_ylabel('Reconstructed $\Phi$', fontsize = TEXT_SIZE)
     
     
     axs[0].set_xlim([0, max_energy])
@@ -344,7 +352,6 @@ class Arrow3D(FancyArrowPatch):
         FancyArrowPatch.draw(self, renderer)
 
 
-
 #scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
 def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
     
@@ -415,12 +422,12 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
         axs[2].scatter(detector_phi, detector_phi, marker='x')
 
 
-    axs[0].set_xlabel('Correct E [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_xlabel('Correct \u03F4', fontsize = TEXT_SIZE)
-    axs[2].set_xlabel('Correct \u03A6', fontsize = TEXT_SIZE)
-    axs[0].set_ylabel('Reconstructed E [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_ylabel('Reconstructed \u03F4', fontsize = TEXT_SIZE)
-    axs[2].set_ylabel('Reconstructed E \u03A6', fontsize = TEXT_SIZE)
+    axs[0].set_xlabel('Correct $E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_xlabel('Correct $\Theta$', fontsize = TEXT_SIZE)
+    axs[2].set_xlabel('Correct $\Phi$', fontsize = TEXT_SIZE)
+    axs[0].set_ylabel('Reconstructed $E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_ylabel('Reconstructed $\Theta$', fontsize = TEXT_SIZE)
+    axs[2].set_ylabel('Reconstructed $\Phi$', fontsize = TEXT_SIZE)
 
 
     axs[0].set_xlim([depth, max_energy])
