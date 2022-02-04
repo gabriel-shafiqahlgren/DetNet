@@ -4,10 +4,10 @@
     
 """
 import json
-import time
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
+import time
 from itertools import product
 from itertools import combinations
 
@@ -23,6 +23,12 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d import proj3d
 
 from utils.help_methods import get_detector_angles
+from utils.help_methods import get_momentum_error_dist
+
+from pandas import DataFrame
+from seaborn import set_style, set_context, displot
+from fitter import Fitter, get_common_distributions, get_distributions
+
 
 TEXT_SIZE = 27
 
@@ -92,12 +98,12 @@ def plot_predictions(y, y_, bins=500, show_detector_angles=True):
         axs[2].scatter(detector_phi, detector_phi, marker='x')
     
     
-    axs[0].set_xlabel('Korrekt $ E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_xlabel('Korrekt $ \theta$', fontsize = TEXT_SIZE)
-    axs[2].set_xlabel('Korrekt $ \phi$', fontsize = TEXT_SIZE)
-    axs[0].set_ylabel('Rekonstruerad $ E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_ylabel('Rekonstruerad $ \theta$', fontsize = TEXT_SIZE)
-    axs[2].set_ylabel('Rekonstruerad $ \phi$', fontsize = TEXT_SIZE)
+    axs[0].set_xlabel('Korrekt $E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_xlabel('Korrekt $\theta$', fontsize = TEXT_SIZE)
+    axs[2].set_xlabel('Korrekt $\phi$', fontsize = TEXT_SIZE)
+    axs[0].set_ylabel('Rekonstruerad $E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_ylabel('Rekonstruerad $\theta$', fontsize = TEXT_SIZE)
+    axs[2].set_ylabel('Rekonstruerad $\phi$', fontsize = TEXT_SIZE)
     
     
     axs[0].set_xlim([0, max_energy])
@@ -155,6 +161,10 @@ def plot_loss(history):
     Raises:
         TypeError : if history is not History object
     """
+    font = {'family' : 'STIXGeneral',
+        'weight' : 'normal',
+        'size'   : 18}
+    rc('font', **font)
     if not isinstance(history, tf.keras.callbacks.History):
         raise TypeError('history must of type tf.keras.callbacks.History')
         
@@ -169,6 +179,7 @@ def plot_loss(history):
     plt.plot(val_epochs, val_loss, label='validation')
     plt.ylabel('loss')
     plt.xlabel('epoch')
+    plt.grid()
     plt.legend()
     return fig
 
@@ -352,8 +363,6 @@ class Arrow3D(FancyArrowPatch):
         self.set_positions((xs[0],ys[0]),(xs[1],ys[1]))
         FancyArrowPatch.draw(self, renderer)
 
-
-
 def plot_momentum_error_dist(y, y_, bins=100, aspect=1.5):    
     start_time = time.time()
     P_error = get_momentum_error_dist(y, y_, True)
@@ -484,4 +493,3 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
     
     print("Plotting time> --- %s seconds ---" % (time.time() - start_time))
     return fig, events
-
