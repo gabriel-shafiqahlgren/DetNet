@@ -5,6 +5,7 @@
 """
 import os
 import numpy as np
+import time
 
 from tensorflow import transpose
 from tensorflow.keras import Model
@@ -21,11 +22,13 @@ from utils.tensors import get_identity_tensor
 DET_GEOMETRY = os.path.join(os.getcwd(), 'data', 'geom_xb.txt') 
 
 def get_permutation_match(y, y_, loss_function, max_mult, no_batches=10):
+    
     """
     Sorts the predictions with corresponding label as the minimum of a square 
     error loss function. Must be used BEFORE plotting the "lasersvärd".
 
-    """
+    """    
+    start_time = time.time()
     print('Matching predicted data with correct label permutation. May take a while...')
     
     new_y_ = np.empty((0, len(y[0])))
@@ -47,6 +50,7 @@ def get_permutation_match(y, y_, loss_function, max_mult, no_batches=10):
         new_y_ = np.append(new_y_, matched_y_, axis=0)
         
     
+    print("Permutation time> --- %s seconds ---" % (time.time() - start_time))
     return y, new_y_
 
 
@@ -128,9 +132,8 @@ def get_no_trainable_parameters(compiled_model):
 def get_measurement_of_performance(y, y_, sphericalBool):
     """
     Returns the mean and standard deviation in the error of predicted energy, 
-    theta and phi for given predictions and labels. 
+    theta and phi for given predictions and labels.
     
-    Added momentum.    
     """
     energy_error = y[...,0::3]-y_[...,0::3]
     theta_error = y[...,1::3]-y_[...,1::3]
@@ -150,9 +153,21 @@ def get_measurement_of_performance(y, y_, sphericalBool):
     P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
     P_error = [np.linalg.norm(P[:,i]) for i in range(len(y[...,0::3]))]
     P_mean = np.mean(P_error)
-    P_std = np.std(P_error)
-    
-    return {'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std}
+    P_std = np.std(P_error)    
+
+    return print({'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std})
+
+def get_momentum_error_dist(y, y_, sphericalBool):
+    if sphericalBool:
+        y = spherical_to_cartesian(y)
+        y_ = spherical_to_cartesian(y_)
+        
+    P_l = lambda q: y[::,q::3].flatten()
+    P_l_ = lambda q: y_[::,q::3].flatten()
+
+    P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
+    P_error = [np.linalg.norm(P[:,i]) for i in range(len(y[...,0::3]))]
+    return P_error
     
 def save(folder, figure, learning_curve, model):
     folder0 = folder
@@ -172,6 +187,3 @@ def save(folder, figure, learning_curve, model):
     # figure.savefig(folder + 'event_reconstruction.eps', format='eps')
     learning_curve.savefig(folder + 'training_curve.png', format='png')
     model.save_weights(folder + 'weights.h5')
-
-
-
