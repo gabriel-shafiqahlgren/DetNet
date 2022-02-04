@@ -352,8 +352,24 @@ class Arrow3D(FancyArrowPatch):
         FancyArrowPatch.draw(self, renderer)
 
 
+
+def momentum_error_dist(y, y_, bins=100, aspect=1.5):    
+    start_time = time.time()
+    P_error = get_momentum_error_dist(predictions, eval_, True)
+    sns.set_style('white')
+    sns.set_context("paper", font_scale = 2)
+    ax = sns.displot(data=DataFrame(data={"Momentum error": P_error}), kind="hist", bins=bins, aspect=aspect)
+    ax.set(xlabel='Momentum error', ylabel='Count')
+    plt.show()
+    f = Fitter(P_error,distributions=['gamma','lognorm','beta','burr'])
+    f.fit()
+    print(f.summary())    
+    print("Fitting time> --- %s seconds ---" % (time.time() - start_time))
+        
+        
 #scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
 def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
+    start_time = time.time()
     
     # Equation system for left, bottom bar of graph. 
     # a * min_eval_ + b =  0
@@ -427,7 +443,7 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
     axs[0].set_xlabel(r'Korrekt $ E$ [MeV]', fontsize = TEXT_SIZE)
     axs[1].set_xlabel(r'Korrekt $ \theta$', fontsize = TEXT_SIZE)
     axs[2].set_xlabel(r'Korrekt $ \phi$', fontsize = TEXT_SIZE)
-    axs[0].set_ylabel(r'Rekonstruerad $ E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[0].set_ylabel(r'Rekonstruerad $E$ [MeV]', fontsize = TEXT_SIZE)
     axs[1].set_ylabel(r'Rekonstruerad $ \theta$', fontsize = TEXT_SIZE)
     axs[2].set_ylabel(r'Rekonstruerad $ \phi$', fontsize = TEXT_SIZE)
 
@@ -446,7 +462,7 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
     # fig.delaxes(cb1.ax)
     cb2 = fig.colorbar(img[1][3], ax = axs[1], fraction=0.046, pad = 0.04)
     # fig.delaxes(cb2.ax)
-    cb3 = fig.colorbar(img[2][3], ax = axs[2], fraction=0.046, pad=0.04)
+    cb3 = fig.colorbar(img[2][3], ax = axs[2], fraction=0.046, pad= 0.04)
 
     cb1.ax.tick_params(labelsize = TEXT_SIZE)
     cb2.ax.tick_params(labelsize = TEXT_SIZE)
@@ -469,4 +485,7 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
     plt.yticks(np.linspace(0, 2*np.pi, 3),['0','$\pi$','$2\pi$'])
 
     fig.tight_layout()
+    
+    print("Plotting time> --- %s seconds ---" % (time.time() - start_time))
     return fig, events
+
