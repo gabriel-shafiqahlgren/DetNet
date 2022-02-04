@@ -125,11 +125,12 @@ def get_no_trainable_parameters(compiled_model):
     return np.sum([count_params(w) for w in compiled_model.trainable_weights])
 
 
-def get_measurement_of_performance(y, y_):
+def get_measurement_of_performance(y, y_, sphericalBool):
     """
     Returns the mean and standard deviation in the error of predicted energy, 
-    theta and phi for given predictions and labels.
+    theta and phi for given predictions and labels. 
     
+    Added momentum.    
     """
     energy_error = y[...,0::3]-y_[...,0::3]
     theta_error = y[...,1::3]-y_[...,1::3]
@@ -138,7 +139,20 @@ def get_measurement_of_performance(y, y_):
     
     mean = (np.mean(energy_error), np.mean(theta_error), np.mean(phi_error))
     std = (np.std(energy_error), np.std(theta_error), np.std(phi_error))
-    return {'mean': mean, 'std': std}
+    
+    if sphericalBool:
+        y = spherical_to_cartesian(y)
+        y_ = spherical_to_cartesian(y_)
+        
+    P_l = lambda q: y[::,q::3].flatten()
+    P_l_ = lambda q: y_[::,q::3].flatten()
+
+    P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
+    P_error = [np.linalg.norm(P[:,i]) for i in range(len(y[...,0::3]))]
+    P_mean = np.mean(P_error)
+    P_std = np.std(P_error)
+    
+    return {'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std}
     
 def save(folder, figure, learning_curve, model):
     folder0 = folder
