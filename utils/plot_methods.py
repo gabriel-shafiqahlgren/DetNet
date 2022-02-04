@@ -356,7 +356,7 @@ class Arrow3D(FancyArrowPatch):
 
 def momentum_error_dist(y, y_, bins=100, aspect=1.5):    
     start_time = time.time()
-    P_error = get_momentum_error_dist(predictions, eval_, True)
+    P_error = get_momentum_error_dist(y, y_, True)
     sns.set_style('white')
     sns.set_context("paper", font_scale = 2)
     ax = sns.displot(data=DataFrame(data={"Momentum error": P_error}), kind="hist", bins=bins, aspect=aspect)
