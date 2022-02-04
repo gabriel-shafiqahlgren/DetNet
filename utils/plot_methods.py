@@ -23,7 +23,7 @@ from mpl_toolkits.mplot3d import proj3d
 
 from utils.help_methods import get_detector_angles
 
-TEXT_SIZE = 22
+TEXT_SIZE = 27
 
 font = {'family' : 'STIXGeneral',
         'weight' : 'normal',
@@ -91,12 +91,12 @@ def plot_predictions(y, y_, bins=500, show_detector_angles=True):
         axs[2].scatter(detector_phi, detector_phi, marker='x')
     
     
-    axs[0].set_xlabel('Correct $E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_xlabel('Correct $\Theta$', fontsize = TEXT_SIZE)
-    axs[2].set_xlabel('Correct $\Phi$', fontsize = TEXT_SIZE)
-    axs[0].set_ylabel('Reconstructed $E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_ylabel('Reconstructed $\Theta$', fontsize = TEXT_SIZE)
-    axs[2].set_ylabel('Reconstructed $\Phi$', fontsize = TEXT_SIZE)
+    axs[0].set_xlabel('Korrekt $ E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_xlabel('Korrekt $ \theta$', fontsize = TEXT_SIZE)
+    axs[2].set_xlabel('Korrekt $ \phi$', fontsize = TEXT_SIZE)
+    axs[0].set_ylabel('Rekonstruerad $ E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_ylabel('Rekonstruerad $ \theta$', fontsize = TEXT_SIZE)
+    axs[2].set_ylabel('Rekonstruerad $ \phi$', fontsize = TEXT_SIZE)
     
     
     axs[0].set_xlim([0, max_energy])
@@ -363,7 +363,7 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
     # 'epsilon': The threshold of energies to look into. [0 , epsilon] interval of energies is represented in the bar.
     # 'depth': Width of the bar essentially. Around [1 , 2] is good.
     
-    epsilon = 0.1
+    epsilon = 0.06
     depth = -1.35
 
     min_eval_ = min(y_[::,0::3].flatten())
@@ -380,11 +380,13 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
     # For leftbar: Intension is to map the lowest 'x, y_, eval_' value to 0 and highest to 'depth'. 'y, predictions' values remain unchanged
     # For bottombar: Maps the lowest value to 0 and the highest to 'depth'.
 
-    Y_leftbar = np.array([y[::,0::3].flatten()[i] for i, e in enumerate(y_[::,0::3].flatten()) if e < epsilon])
-    X_leftbar = np.array([a1*y_[::,0::3].flatten()[i]+b1 for i, e in enumerate(y_[::,0::3].flatten()) if e < epsilon])
-
-    Y_botbar = np.array([a2*y[::,0::3].flatten()[i]+b2 for i, e in enumerate(y[::,0::3].flatten()) if e < epsilon])
-    X_botbar = np.array([y_[::,0::3].flatten()[i] for i, e in enumerate(y[::,0::3].flatten()) if e < epsilon])
+    E_pred = y[::,0::3].flatten()
+    E_eval = y_[::,0::3].flatten()
+    
+    Y_leftbar = np.array([E_pred[i] for i, e in enumerate(E_eval) if e < epsilon])
+    X_leftbar = np.array([a1*E_eval[i]+b1 for i, e in enumerate(E_eval) if e < epsilon])
+    Y_botbar = np.array([a2*E_pred[i]+b2 for i, e in enumerate(E_pred) if e < epsilon])
+    X_botbar = np.array([E_eval[i] for i, e in enumerate(E_pred) if e < epsilon])
 
     events = {'predicted_energy': np.concatenate([y[::,0::3].flatten(), Y_leftbar, Y_botbar]),
               'correct_energy': np.concatenate([y_[::,0::3].flatten(), X_leftbar, X_botbar]), 
@@ -422,12 +424,12 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
         axs[2].scatter(detector_phi, detector_phi, marker='x')
 
 
-    axs[0].set_xlabel('Correct $E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_xlabel('Correct $\Theta$', fontsize = TEXT_SIZE)
-    axs[2].set_xlabel('Correct $\Phi$', fontsize = TEXT_SIZE)
-    axs[0].set_ylabel('Reconstructed $E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_ylabel('Reconstructed $\Theta$', fontsize = TEXT_SIZE)
-    axs[2].set_ylabel('Reconstructed $\Phi$', fontsize = TEXT_SIZE)
+    axs[0].set_xlabel(r'Korrekt $ E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_xlabel(r'Korrekt $ \theta$', fontsize = TEXT_SIZE)
+    axs[2].set_xlabel(r'Korrekt $ \phi$', fontsize = TEXT_SIZE)
+    axs[0].set_ylabel(r'Rekonstruerad $ E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_ylabel(r'Rekonstruerad $ \theta$', fontsize = TEXT_SIZE)
+    axs[2].set_ylabel(r'Rekonstruerad $ \phi$', fontsize = TEXT_SIZE)
 
 
     axs[0].set_xlim([depth, max_energy])
