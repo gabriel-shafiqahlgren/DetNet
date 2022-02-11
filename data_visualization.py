@@ -13,11 +13,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-from ..utils.data_preprocess import load_data
-from ..utils.help_methods import cartesian_to_spherical
+from utils.data_preprocess import load_data
+from utils.help_methods import cartesian_to_spherical
 
 #file in data catalogue
-NPZ_DATAFILE = os.path.join(os.getcwd(), '..data', 'XB_mixed_data.npz') 
+NPZ_DATAFILE = os.path.join(os.getcwd(), 'data', 'XB_mixed_data.npz') 
 
 
 def plot_data_hist(labels, close=True, spherical=False):
