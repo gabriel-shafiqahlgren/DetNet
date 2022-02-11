@@ -98,11 +98,11 @@ def plot_predictions(y, y_, bins=500, show_detector_angles=True):
         axs[2].scatter(detector_phi, detector_phi, marker='x')
     
     
-    axs[0].set_xlabel('Korrekt $E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_xlabel('Korrekt $\theta$', fontsize = TEXT_SIZE)
-    axs[2].set_xlabel('Korrekt $\phi$', fontsize = TEXT_SIZE)
+    axs[0].set_xlabel('Korrekt $\hat{E}$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_xlabel('Korrekt $\hat{\\theta}$', fontsize = TEXT_SIZE)
+    axs[2].set_xlabel('Korrekt $\hat{\phi}$', fontsize = TEXT_SIZE)
     axs[0].set_ylabel('Rekonstruerad $E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_ylabel('Rekonstruerad $\theta$', fontsize = TEXT_SIZE)
+    axs[1].set_ylabel('Rekonstruerad $\\theta$', fontsize = TEXT_SIZE)
     axs[2].set_ylabel('Rekonstruerad $\phi$', fontsize = TEXT_SIZE)
     
     
