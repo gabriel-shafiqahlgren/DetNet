@@ -137,7 +137,7 @@ def get_no_trainable_parameters(compiled_model):
     return np.sum([count_params(w) for w in compiled_model.trainable_weights])
 
 
-def get_measurement_of_performance(y, y_, sphericalBool):
+def get_measurement_of_performance(y, y_, spherical=True):
     """
     Returns the mean and standard deviation in the error of predicted energy, 
     theta and phi for given predictions and labels.
@@ -151,7 +151,7 @@ def get_measurement_of_performance(y, y_, sphericalBool):
     mean = (np.mean(energy_error), np.mean(theta_error), np.mean(phi_error))
     std = (np.std(energy_error), np.std(theta_error), np.std(phi_error))
     
-    if sphericalBool:
+    if spherical:
         y = spherical_to_cartesian(y)
         y_ = spherical_to_cartesian(y_)
         
