@@ -163,7 +163,7 @@ def get_measurement_of_performance(y, y_, sphericalBool):
     P_mean = np.mean(P_error)
     P_std = np.std(P_error)    
 
-    return print({'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std})
+    return {'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std}
 
 def get_momentum_error_dist(y, y_, sphericalBool):
     if sphericalBool:
