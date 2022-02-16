@@ -6,6 +6,11 @@
 import os
 import numpy as np
 import time
+import csv
+import psutil
+import datetime
+import subprocess as sp
+import time
 
 from tensorflow import transpose
 from tensorflow.keras import Model
@@ -15,9 +20,12 @@ from tensorflow.keras.backend import constant
 from tensorflow.keras.backend import count_params
 from tensorflow.keras.backend import argmin
 from tensorflow.keras.backend import sum as Ksum
+from tensorflow.python.client import device_lib
 
 from utils.tensors import get_permutation_tensor
 from utils.tensors import get_identity_tensor
+
+from csv import writer
 
 DET_GEOMETRY = os.path.join(os.getcwd(), 'data', 'geom_xb.txt') 
 
@@ -187,3 +195,60 @@ def save(folder, figure, learning_curve, model):
     # figure.savefig(folder + 'event_reconstruction.eps', format='eps')
     learning_curve.savefig(folder + 'training_curve.png', format='png')
     model.save_weights(folder + 'weights.h5')
+    
+def save_figs(folder, figs, model):
+    # Saves a list of figures and the model weights and returns the folder (string) the files
+    # were saved in.
+    folder0 = folder
+    folder_name_taken = True
+    n = 0
+    while folder_name_taken:
+        n += 1
+        try:
+            os.makedirs(folder)
+            folder_name_taken = False
+        except FileExistsError:
+            folder = folder0 + str(n)
+        if n==200: 
+            raise ValueError('change name!')
+    folder = folder+'/'
+    i = 0
+    for figures in figs:
+        figures.savefig(folder +'fig' + str(i) +'.png', format='png')
+        i += 1
+        
+    model.save_weights(folder + 'weights.h5')
+    return folder
+ 
+def get_available_gpus():
+    # Returns tuple of: (the gpu used and the amount of gpus).
+    local_device_protos = device_lib.list_local_devices()
+    GPUS_array = [x.physical_device_desc for x in local_device_protos if x.device_type == 'GPU']
+    return GPUS_array[0], len(GPUS_array)
+
+def get_mem_use():
+    # Returns the memory used by the python process, I think.
+    pid = os.getpid()
+    python_process = psutil.Process(pid)
+    return python_process.memory_info()[0]/2.**30  # memory use in GB...I think
+
+def get_gpu_memory(): 
+    # Returns the dedicated GPU memory usage in GB
+    command = "nvidia-smi --query-gpu=memory.used --format=csv"
+    memory_used_info = sp.check_output(command.split()).decode('ascii').split('\n')[:-1][1:]
+    memory_used_values = [int(x.split()[0]) for i, x in enumerate(memory_used_info)][0]
+    return memory_used_values * 0.001048576 # in GB
+
+def save_dictionary_csv(csvfile, dictn):
+    # Saves a dictionary to a CSV file. 
+    # If no .csv file exists of the given name a new one will be created
+    # with the 'keys' of the dictionary as the first row in .csv file.
+    # If the file exists it will only add the 'values' of the dictionary,
+    # wont overwrite current values.
+    if os.path.isfile(csvfile) == False:    
+        with open(csvfile, 'a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(dictn.keys())
+    with open(csvfile, 'a', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(dictn.values())
