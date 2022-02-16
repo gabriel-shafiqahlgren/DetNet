@@ -35,8 +35,10 @@ def FCN(no_inputs, no_outputs, no_layers, no_nodes):
         for i in range(no_layers-1):
             x = Dense(no_nodes, activation='relu')(x)
         outputs = Dense(no_outputs, activation='linear')(x)
-    
-    return Model(inputs, outputs)
+        
+    model = Model(inputs, outputs)
+    model._name = 'FCN'
+    return model
             
             
 def GCN(no_inputs, no_outputs, no_layers, no_nodes):
@@ -51,18 +53,25 @@ def GCN(no_inputs, no_outputs, no_layers, no_nodes):
         x = Dense(no_nodes, activation='relu')(x)
     
     outputs = Dense(no_outputs, activation='linear')(x)
-    return Model(inputs, outputs)
+    
+    model = Model(inputs, outputs)
+    model._name = 'GCN'
+    return model
 
-def ResNet(no_inputs, no_outputs):
+def ResNet(no_inputs, no_outputs, blocks):
     
     inputs = Input(shape=(no_inputs,), dtype='float32')
     
     x = res_net_block(inputs)
-    x = res_net_block(x)
+    for i in range(blocks):
+        x = res_net_block(x)
     x = res_net_block(x)
     
     outputs = outputs = Dense(no_outputs, activation='linear')(x)
-    return Model(inputs, outputs)
+    
+    model = Model(inputs, outputs)
+    model._name = 'ResNet'
+    return model
 
 
 #classification, need more work
