@@ -27,7 +27,6 @@ from utils.help_methods import get_momentum_error_dist
 
 from pandas import DataFrame
 from seaborn import set_style, set_context, displot
-from fitter import Fitter, get_common_distributions, get_distributions
 
 
 TEXT_SIZE = 27
@@ -363,13 +362,17 @@ class Arrow3D(FancyArrowPatch):
         self.set_positions((xs[0],ys[0]),(xs[1],ys[1]))
         FancyArrowPatch.draw(self, renderer)
 
+# Plots a distribution of the momentum errors.
+# Returns the figure.
 def plot_momentum_error_dist(y, y_, bins=100, aspect=1.5):    
     start_time = time.time()
     P_error = get_momentum_error_dist(y, y_, True)
-    f = Fitter(P_error,distributions=['gamma','lognorm','beta','burr'])
-    f.fit()
-    print(f.summary())    
-    print("Fitting time> --- %s seconds ---" % (time.time() - start_time))
+    set_style('white')
+    set_context("paper", font_scale = 2)
+    fig = plt.figure(figsize=(12, 9))
+    fig = displot(data=DataFrame(data={"Momentum error": P_error}), kind="hist", bins=bins, aspect=aspect)
+    fig.set(xlabel='$|| \mathbf{p}_i -  \hat{\mathbf{p}}_i  ||$', ylabel='Count')
+    return fig
         
         
 #scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
