@@ -40,7 +40,6 @@ beta_2 = 0.99999
 
 
 def network(iterations):
-    # lossVector, pStd, pMean, trainingTime, memUse, gpuMemUse = zeros((6, iterations))
     dMetrics: Dict[str, List[Any]] = {'Loss': [], 'P Std': [], 'P Mean': [], 'Training t': [], 'Epochs': [],
                                       'Memory use': [], 'GPU memory use': []}
 
@@ -85,6 +84,7 @@ def network(iterations):
         predictions = cartesian_to_spherical(predictions, error=True)
         eval_ = cartesian_to_spherical(eval_, error=True)
         meas_perf = get_measurement_of_performance(predictions, eval_, spherical=True)
+        
         dMetrics['P Mean'].append(meas_perf['momentum mean'])
         dMetrics['P Std'].append(meas_perf['momentum std'])
         dMetrics['Loss'].append(training.history['loss'][-1])
@@ -103,6 +103,9 @@ def network(iterations):
 
     number_of_events = len(data[:, 0])
 
+    
+    # Probably wont work if the optimizer is changed from Adam. 
+    # Since it needs the .decay, .beta_1, .beta_2 attributes.
     dict_temp = {'Iterations': iterations, 'Mean loss': mean_loss, 'Std loss': std_loss,
                  'Mean of mean p error': mean_mme,
                  'Mean of std p error': std_mme, 'Batch size': BATCH_SIZE, 'Nodes': NO_NODES, 'Layers': NO_LAYERS,
@@ -116,6 +119,6 @@ def network(iterations):
     return dict_temp
 
 
-n = 10
+n = 10 # Number of times to train the network.
 dictionary = network(n)
 save_dictionary_csv('info.csv', dictionary)
