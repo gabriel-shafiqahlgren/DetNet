@@ -137,20 +137,7 @@ def get_no_trainable_parameters(compiled_model):
     return np.sum([count_params(w) for w in compiled_model.trainable_weights])
 
 
-def get_measurement_of_performance(y, y_, spherical=True):
-    """
-    Returns the mean and standard deviation in the error of predicted energy, 
-    theta and phi for given predictions and labels.
-    
-    """
-    energy_error = y[...,0::3]-y_[...,0::3]
-    theta_error = y[...,1::3]-y_[...,1::3]
-    phi_diff = np.mod(y[...,2::3]-y_[...,2::3], 2*np.pi)
-    phi_error = np.where(phi_diff > np.pi, phi_diff - 2*np.pi, phi_diff)
-    
-    mean = (np.mean(energy_error), np.mean(theta_error), np.mean(phi_error))
-    std = (np.std(energy_error), np.std(theta_error), np.std(phi_error))
-    
+def get_momentum_error_dist(y, y_, spherical=True):
     if spherical:
         y = spherical_to_cartesian(y)
         y_ = spherical_to_cartesian(y_)
@@ -160,22 +147,41 @@ def get_measurement_of_performance(y, y_, spherical=True):
 
     P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
     P_error = [np.linalg.norm(P[:,i]) for i in range(len(y[...,0::3]))]
+    return P_error
+    
+def get_measurement_of_performance(y, y_, spherical=True):
+    """
+    Returns the mean and standard deviation in the error of predicted energy, 
+    theta and phi for given predictions and labels.
+    
+    """
+    if spherical:
+        cart_y = cartesian_to_spherical(y)
+        cart_y_ = cartesian_to_spherical(y_)
+        
+        sph_y = y
+        sph_y_ = y_
+        
+    else: 
+        sph_y = spherical_to_cartesian(y)
+        sph_y_ = spherical_to_cartesian(y_)
+        
+        cart_y = y
+        cart_y_ = y_
+        
+    energy_error = sph_y[...,0::3]-sph_y_[...,0::3]
+    theta_error = sph_y[...,1::3]-sph_y_[...,1::3]
+    phi_diff = np.mod(sph_y[...,2::3]-sph_y_[...,2::3], 2*np.pi)
+    phi_error = np.where(phi_diff > np.pi, phi_diff - 2*np.pi, phi_diff)
+
+    mean = (np.mean(energy_error), np.mean(theta_error), np.mean(phi_error))
+    std = (np.std(energy_error), np.std(theta_error), np.std(phi_error))
+    
+    P_error = get_momentum_error_dist(cart_y,cart_y_, spherical=False)
     P_mean = np.mean(P_error)
     P_std = np.std(P_error)    
 
     return {'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std}
-
-def get_momentum_error_dist(y, y_, sphericalBool):
-    if sphericalBool:
-        y = spherical_to_cartesian(y)
-        y_ = spherical_to_cartesian(y_)
-        
-    P_l = lambda q: y[::,q::3].flatten()
-    P_l_ = lambda q: y_[::,q::3].flatten()
-
-    P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
-    P_error = [np.linalg.norm(P[:,i]) for i in range(len(y[...,0::3]))]
-    return P_error
     
 def save(folder, figure, learning_curve, model):
     folder0 = folder
