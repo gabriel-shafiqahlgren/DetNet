@@ -156,15 +156,15 @@ def get_measurement_of_performance(y, y_, spherical=True):
     
     """
     if spherical:
-        cart_y = cartesian_to_spherical(y)
-        cart_y_ = cartesian_to_spherical(y_)
+        cart_y = spherical_to_cartesian(y)
+        cart_y_ = spherical_to_cartesian(y_)
         
         sph_y = y
         sph_y_ = y_
         
     else: 
-        sph_y = spherical_to_cartesian(y)
-        sph_y_ = spherical_to_cartesian(y_)
+        sph_y = cartesian_to_spherical(y)
+        sph_y_ = cartesian_to_spherical(y_)
         
         cart_y = y
         cart_y_ = y_
