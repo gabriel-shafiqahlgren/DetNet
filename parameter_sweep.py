@@ -57,7 +57,16 @@ else:
     print("You entered: " + filename)
 
 
-save_filename = input('Save sweep as (ex "sweep1.txt")?: ')
+save_filename = input('Save sweep as ("def" -> <filename>.txt?: ')
+if save_filename == 'def':
+    save_filename = filename.replace('npz','txt')
+print('Data will be saved in ' + save_filename)
+
+no_iter = int(input('How many times do you want the script to run?: '))
+if no_iter < 0 or no_iter > 10:
+    no_iter = 1
+    print('Input is not a whole number greater than zero and less than 10.'+'\n'+'The script will run one time.')
+    
 
 f = open(save_filename, 'a')
 f.write(filename+'\n'+'MME, no_layers, no_nodes, no_epochs, batch_size, lr_rate'+'\n')
@@ -71,59 +80,61 @@ data, labels = load_data(npz_datafile, TOTAL_PORTION)
 #detach subset for final evaluation, train and eval are inputs, train_ and eval_ are labels
 train, train_, eval, eval_ = get_eval_data(data, labels, eval_portion=EVAL_PORTION)
 
-
-def build_FCN_fix_param(train, train_, NO_LAYERS, NO_NODES, \
+for i in range(no_iter):
+    f = open(save_filename, 'a')
+    f.write('Iteration ' + f'{i +1}' + '\n')
+    f.close()
+    def build_FCN_fix_param(train, train_, NO_LAYERS, NO_NODES, \
                         NO_EPOCHS, BATCH_SIZE, LEARNING_RATE, VALIDATION_SPLIT):
     ## ---------------------- Build the neural network -----------------------------
     
-    # Derived parameters
-    no_inputs = len(train[0])
-    no_outputs = len(train_[0])
-    model = FCN(no_inputs, no_outputs, NO_LAYERS, NO_NODES)
+        # Derived parameters
+        no_inputs = len(train[0])
+        no_outputs = len(train_[0])
+        model = FCN(no_inputs, no_outputs, NO_LAYERS, NO_NODES)
     
-    # select mean squared error as loss function
-    max_mult = int(no_outputs / 3)
-    loss = LossFunction(max_mult, regression_loss='squared')
+        # select mean squared error as loss function
+        max_mult = int(no_outputs / 3)
+        loss = LossFunction(max_mult, regression_loss='squared')
     
-    #compile the network
-    model.compile(optimizer=Adam(lr=LEARNING_RATE), loss=loss.get(), metrics=['accuracy'])
+        #compile the network
+        model.compile(optimizer=Adam(lr=LEARNING_RATE), loss=loss.get(), metrics=['accuracy'])
 
-    ## ----------------- Train the neural network and plot results -----------------
-    
-    #training = model.fit(
-    model.fit(train, train_,
+        ## ----------------- Train the neural network and plot results -----------------
+        #training = model.fit(
+        model.fit(train, train_,
                          epochs=NO_EPOCHS,
                          batch_size=BATCH_SIZE,
                          validation_split=VALIDATION_SPLIT,
                          callbacks=[EarlyStopping(monitor='val_loss', patience=3)])
-    return model, loss, max_mult
+        return model, loss, max_mult
 
 
 
-for no_layers in ls_no_layers:
-    for no_nodes in ls_no_nodes:
-        for no_epochs in ls_no_epochs:
-            for batch_size in ls_no_batch_size:
-                for lr_rate in ls_learning_rate:
-                    model, loss, max_mult = build_FCN_fix_param(train, train_, no_layers, no_nodes, no_epochs,\
+    for no_layers in ls_no_layers:
+        for no_nodes in ls_no_nodes:
+            for no_epochs in ls_no_epochs:
+                for batch_size in ls_no_batch_size:
+                    for lr_rate in ls_learning_rate:
+                        model, loss, max_mult = build_FCN_fix_param(train, train_, no_layers, no_nodes, no_epochs,\
                                         batch_size, lr_rate, VALIDATION_SPLIT)
                     
-                    # get predictions on evaluation data
-                    predictions = model.predict(eval)
+                        # get predictions on evaluation data
+                        predictions = model.predict(eval)
                        
-                    # return the combination that minimized the loss function (out of max_mult! possible combinations)
-                    predictions, eval_ = get_permutation_match(predictions, eval_, loss, max_mult)
+                        # return the combination that minimized the loss function (out of max_mult! possible combinations)
+                        predictions, eval_ = get_permutation_match(predictions, eval_, loss, max_mult)
                      
-                    # print the error in E, theta and phi a
-                    get_measurement_of_performance(predictions, eval_, False)
+                        # print the error in E, theta and phi a
+                        get_measurement_of_performance(predictions, eval_, False)
                        
-                     #calculate the mean momentum error (MME)
-                    MME = get_momentum_error_dist(predictions, eval_, False)
-                    MME = np.mean(MME)
+                        #calculate the mean momentum error (MME)
+                        MME = get_momentum_error_dist(predictions, eval_, False)
+                        MME = np.mean(MME)
                     
-                    f = open(save_filename, 'a')
-                    f.write(f'{MME}, {no_layers}, {no_nodes}, {no_epochs}, {batch_size}, {lr_rate} \n')
-                    f.close()
+                        f = open(save_filename, 'a')
+                        f.write(f'{MME}, {no_layers}, {no_nodes}, {no_epochs}, {batch_size}, {lr_rate} \n')
+                        f.close()
                     
                     
                         
