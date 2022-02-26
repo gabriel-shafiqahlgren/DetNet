@@ -209,6 +209,7 @@ def save_figs(folder, figs, model):
     folder_name_taken = True
     n = 0
     while folder_name_taken:
+        folder = folder0 + str(n)
         n += 1
         try:
             os.makedirs(folder)
