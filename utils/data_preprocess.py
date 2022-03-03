@@ -10,11 +10,12 @@ from random import sample
 from .help_methods import spherical_to_cartesian
 
 
-def load_data(npz_file, total_portion, add_zeros=0, classification=False, hinge=False):
+def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., classification=False, hinge=False):
     """
     Reads a .npz-file from the address string: npz_file that contains simulation 
     data in spherical coordinates. I transforms to cartesian coordinates and
-    may add n empty events and also add classification nodes.
+    may add n empty events or make some portion of the events be zero-events
+    and also add classification nodes.
     
     """
     if not total_portion > 0 and total_portion <= 1:
@@ -23,9 +24,13 @@ def load_data(npz_file, total_portion, add_zeros=0, classification=False, hinge=
     data_set = np.load(npz_file)
     det_data = data_set['detector_data']
     labels = spherical_to_cartesian(data_set['energy_labels'])
+    no_events = len(labels)
     
     if add_zeros:
         det_data, labels = insert_empty_events(det_data, labels, n=add_zeros)
+    elif 0. < portion_zeros < 1.:
+        n = (no_events*portion_zeros)/(1-portion_zeros)
+        det_data, labels = insert_empty_events(det_data, labels, n=int(n))
     
     if classification:
         labels = insert_classification_labels(labels, hinge)
