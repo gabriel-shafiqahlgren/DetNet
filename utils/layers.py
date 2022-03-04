@@ -11,6 +11,7 @@ from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Activation
 from tensorflow.keras import activations
+from tensorflow.keras.layers import Dense
 
 from utils.tensors import get_adjacency_matrix
 
@@ -69,3 +70,17 @@ def non_res_block(input_data, filters, conv_size):
     x = Activation('relu')(x)
     
     return x
+
+
+def dense_res_net_block(x, no_nodes, no_skipped_layers):
+    if no_skipped_layers == 0:
+       output = Dense(no_nodes, activation='relu')(x)
+    else:
+        y = Dense(no_nodes, activation='relu')(x)
+        for i in range(no_skipped_layers-1):
+            y = Dense(no_nodes, activation='relu')(y)
+        output = Add()([x, y])
+    return output
+
+
+    
