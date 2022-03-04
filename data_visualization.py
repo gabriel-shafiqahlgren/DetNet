@@ -17,13 +17,12 @@ from utils.data_preprocess import load_data
 from utils.help_methods import cartesian_to_spherical
 
 #file in data catalogue
-NPZ_DATAFILE = os.path.join(os.getcwd(), 'data', 'XB_mixed_data.npz') 
+NPZ_DATAFILE = os.path.join(os.getcwd(), 'data', 'no_rejection.npz') 
 
 
-def plot_data_hist(labels, close=True, spherical=False):
+def plot_data_hist(labels, data, close=True, spherical=False):
     """
     Plots E,theta,phi data loaded from npz_datafile in histograms. 
-    Obs may want to use data as arg too.
     
     Parameters
     ----------
@@ -42,11 +41,14 @@ def plot_data_hist(labels, close=True, spherical=False):
         Refrence to theta hist.
     fig3 : matplotlib.figure.Figure
         Refrence to phi hist.
-
+    fig4 : matplotlib.figure.Figure
+        Refrence to sum of all crystal energies hist.    
+    fig5 : matplotlib.figure.Figure
+        Refrence to number of crystals activated (differs ) hist.
     """
     
     TEXT_SIZE = 20
-    NO_BINS= 1000
+    NO_BINS= 100
     
     if not spherical:
         labels = cartesian_to_spherical(labels, error=True)
@@ -54,6 +56,9 @@ def plot_data_hist(labels, close=True, spherical=False):
     E = labels[::,0::3].flatten()
     theta = labels[::,1::3].flatten()
     phi = labels[::,2::3].flatten()
+    
+    E_sum_det = data.sum(axis=1)
+    XBn_actual = (data != 0).sum(1)
     
     if close:
        plt.close('all')
@@ -76,12 +81,24 @@ def plot_data_hist(labels, close=True, spherical=False):
     plt.ylabel('N', fontsize=TEXT_SIZE)
     plt.xlabel('$\hat{\phi}$', fontsize=TEXT_SIZE)
     
-    return fig1, fig2, fig3
+    fig4 = plt.figure(4)
+    plt.hist(E_sum_det, bins=NO_BINS, histtype='step', color='yellow',)
+    plt.ylabel('N', fontsize=TEXT_SIZE)
+    plt.xlabel('$\hat{E_{det}}$', fontsize=TEXT_SIZE)
+    
+    fig5 = plt.figure(5)
+    plt.hist(XBn_actual, bins=NO_BINS, histtype='step', color='orange',)
+    plt.ylabel('N', fontsize=TEXT_SIZE)
+    plt.xlabel('$\hat{XBn}$', fontsize=TEXT_SIZE)
+    
+    return fig1, fig2, fig3, fig4, fig5
   
 
 # <-- test run here-->
-data, labels = load_data(NPZ_DATAFILE, total_portion=1)
-plot_data_hist(labels)
+#Add zeros adds completly empty events. data[i]=[0, 0, ... , 0, 0]
+#data, labels = load_data(NPZ_DATAFILE, total_portion=1, add_zeros=int(5*1e4))
+data, labels = load_data(NPZ_DATAFILE, total_portion=1)  
+plot_data_hist(labels, data)
 
 
 
