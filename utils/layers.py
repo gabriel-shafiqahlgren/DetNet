@@ -8,10 +8,14 @@ from tensorflow.keras import backend as K
 
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.layers import Add
+from tensorflow.keras.layers import add
 from tensorflow.keras.layers import BatchNormalization
 from tensorflow.keras.layers import Activation
 from tensorflow.keras import activations
+from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
++from tensorflow.nn import relu
++from tensorflow import concat
 
 from utils.tensors import get_adjacency_matrix
 
@@ -111,7 +115,7 @@ class GroupDense(Layer):
 
         self.dense_list = []
         for i in range(self.groups):
-            self.dense_list.append(tf.keras.layers.Dense(units=units,
+            self.dense_list.append(Dense(units=units,
                                                          activation=activation,
                                                          use_bias=use_bias,
                                                          kernel_initializer=kernel_initializer,
@@ -128,23 +132,24 @@ class GroupDense(Layer):
         for i in range(self.groups):
             x_i = self.dense_list[i](inputs)
             feature_map_list.append(x_i)
-        out = tf.concat(feature_map_list, axis=-1)
+        out = concat(feature_map_list, axis=-1)
         return out
 
 
-class ResNeXt_BottleNeck(tf.keras.layers.Layer):
+class ResNeXt_BottleNeck(Layer):
     def __init__(self, units, groups):
         super(ResNeXt_BottleNeck, self).__init__()
-        self.dense1 = tf.keras.layers.Dense(units)
-        #self.bn1 = tf.keras.layers.BatchNormalization()
+
+        self.dense1 = Dense(units)
+        #self.bn1 = BatchNormalization()
         self.group_dense1 = GroupDense(units=16,
                                       groups=groups)               
         self.group_dense2 = GroupDense(units=64,
                                       groups=groups)          
         self.group_dense3 = GroupDense(units=32,
                                       groups=groups)     
-        self.dense2 = tf.keras.layers.Dense(units=32)
-        self.shortcut_dense = tf.keras.layers.Dense(units=32)
+        self.dense2 = Dense(units=32)
+        self.shortcut_dense = Dense(units=32)
         
     def call(self, inputs, training=None, **kwargs):
         x = self.dense1(inputs)
@@ -155,12 +160,12 @@ class ResNeXt_BottleNeck(tf.keras.layers.Layer):
         
         shortcut = self.shortcut_dense(inputs)
         
-        output = tf.nn.relu(tf.keras.layers.add([x, shortcut]))
+        output = relu(add([x, shortcut]))
         return output
 
 
 def build_ResNeXt_block_dense(units, groups, repeat_num):
-    block = tf.keras.Sequential()
+    block = Sequential()
     block.add(ResNeXt_BottleNeck(units=units,
                                  groups=groups))
     for _ in range(1, repeat_num):
