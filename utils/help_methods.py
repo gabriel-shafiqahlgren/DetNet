@@ -25,6 +25,8 @@ from tensorflow.python.client import device_lib
 from utils.tensors import get_permutation_tensor
 from utils.tensors import get_identity_tensor
 
+from contextlib import redirect_stdout
+
 from csv import writer
 
 DET_GEOMETRY = os.path.join(os.getcwd(), 'data', 'geom_xb.txt') 
@@ -203,20 +205,6 @@ def save(folder, figure, learning_curve, model):
     model.save_weights(folder + 'weights.h5')
     
     
-def check_folder(folder): 
-    # Checks if a directory exists
-    folder0 = folder
-    folder_name_taken = True
-    n = 0
-    while folder_name_taken:
-        folder = folder0 + str(n)
-        n += 1
-        if os.path.isdir(folder):
-            folder = folder0 + str(n)
-        else:
-            folder_name_taken = False
-    return folder+'/'
-    
 def save_figs(folder, figs, model):
     # Saves a list of figures and the model weights and returns the folder (string) the files
     # were saved in.
@@ -274,3 +262,23 @@ def save_dictionary_csv(csvfile, dictn):
     with open(csvfile, 'a', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(dictn.values())
+        
+def check_folder(folder): 
+    # Checks if a directory exists
+    folder0 = folder
+    folder_name_taken = True
+    n = 0
+    while folder_name_taken:
+        folder = folder0 + str(n)
+        n += 1
+        if os.path.isdir(folder):
+            folder = folder0 + str(n)
+        else:
+            folder_name_taken = False
+    return folder+'/'
+
+def save_summary(folder, model):
+    # Saves summary of model to a txt file.
+    with open(folder + '/modelsummary.txt', 'w') as f:
+        with redirect_stdout(f):
+            model.summary()
