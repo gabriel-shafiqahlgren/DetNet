@@ -202,6 +202,21 @@ def save(folder, figure, learning_curve, model):
     learning_curve.savefig(folder + 'training_curve.png', format='png')
     model.save_weights(folder + 'weights.h5')
     
+    
+def check_folder(folder): 
+    # Checks if a directory exists
+    folder0 = folder
+    folder_name_taken = True
+    n = 0
+    while folder_name_taken:
+        folder = folder0 + str(n)
+        n += 1
+        if os.path.isdir(folder):
+            folder = folder0 + str(n)
+        else:
+            folder_name_taken = False
+    return folder+'/'
+    
 def save_figs(folder, figs, model):
     # Saves a list of figures and the model weights and returns the folder (string) the files
     # were saved in.

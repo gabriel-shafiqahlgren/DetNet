@@ -5,6 +5,10 @@ Created on Wed Feb 16 13:11:27 2022
 
 Script that loads the file saved with parameter sweep.
 
+To implement:
+    Load a dict instead of a numpy array since one now has to memorize what
+    column contains what :P
+
 @author: gabahl
 """
 
@@ -13,12 +17,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-
 #get the ttl_port figures.
 #Check firsts row of file for exact parameter values.
-arr = np.loadtxt('ann_iterations/lr_rate_sweep2/data_matrix.csv', delimiter=',', skiprows=1)
+arr = np.loadtxt('ann_iterations/lr_rate_sweep3/data_matrix.csv', delimiter=',', skiprows=1)
 plt.rcParams["figure.figsize"] = (14,8)
-
 
 
 lr_rate = np.log10(arr[:,9]) 
@@ -34,6 +36,5 @@ plt.xlabel("$log_{10}(learning rate)$")
 plt.ylabel("mean MME (N=3)")
 
 plt.show()
-
 
 
