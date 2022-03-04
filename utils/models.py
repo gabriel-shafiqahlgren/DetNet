@@ -12,11 +12,8 @@ import tensorflow.keras.backend as K
 from utils.layers import GraphConv
 from utils.layers import res_net_block
 from utils.layers import non_res_block
-<<<<<<< HEAD
 from utils.layers import dense_res_net_block
-=======
 from utils.layers import build_ResNeXt_block_dense
->>>>>>> c34e9f4dbb1db59db3aa28bae59215abf08d703c
 
 from utils.tensors import get_adjacency_matrix
 
