@@ -72,7 +72,7 @@ def non_res_block(input_data, filters, conv_size):
 
 
 
-class GroupDense(tf.keras.layers.Layer):
+class GroupDense(Layer):
     def __init__(self, 
                  units,         
                  activation=None,
