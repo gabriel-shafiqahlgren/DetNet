@@ -71,8 +71,6 @@ def non_res_block(input_data, filters, conv_size):
     
     return x
 
-
-<<<<<<< HEAD
 def dense_res_net_block(x, no_nodes, no_skipped_layers):
     if no_skipped_layers == 0:
        output = Dense(no_nodes, activation='relu')(x)
@@ -82,10 +80,6 @@ def dense_res_net_block(x, no_nodes, no_skipped_layers):
             y = Dense(no_nodes, activation='relu')(y)
         output = Add()([x, y])
     return output
-
-
-    
-=======
 
 class GroupDense(Layer):
     def __init__(self, 
@@ -174,4 +168,3 @@ def build_ResNeXt_block_dense(units, groups, repeat_num):
                                      groups=groups))
 
     return block
->>>>>>> c34e9f4dbb1db59db3aa28bae59215abf08d703c
