@@ -14,8 +14,8 @@ from tensorflow.keras.layers import Activation
 from tensorflow.keras import activations
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
-+from tensorflow.nn import relu
-+from tensorflow import concat
+from tensorflow.nn import relu
+from tensorflow import concat
 
 from utils.tensors import get_adjacency_matrix
 
