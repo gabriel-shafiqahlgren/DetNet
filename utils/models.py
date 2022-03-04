@@ -12,6 +12,7 @@ import tensorflow.keras.backend as K
 from utils.layers import GraphConv
 from utils.layers import res_net_block
 from utils.layers import non_res_block
+from utils.layers import build_ResNeXt_block_dense
 
 from utils.tensors import get_adjacency_matrix
 
@@ -105,5 +106,34 @@ def FCN_(no_inputs, no_outputs, no_layers, no_nodes,
         outputs = Dense(no_outputs, activation='linear')(x)
         
     return Model(inputs, outputs)
+    
+def ResNeXtDense(units=64, cardinality=32):
+    no_outputs = 9
+    no_inputs = 162
 
+    repeat_num_list=[1, 2, 4, 1]
+    inputs = Input(shape=(no_inputs,), dtype='float32')
+
+    x = Dense(64, activation='relu')(inputs)
+
+
+    x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+                            repeat_num=repeat_num_list[0])(x)
+    
+#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+#                             repeat_num=repeat_num_list[1])(x)
+    
+#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+#                             repeat_num=repeat_num_list[2])(x)
+    
+#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+#                             repeat_num=repeat_num_list[3])(x)
+    
+#     x = tf.keras.layers.BatchNormalization()(x)
+
+    outputs = Dense(no_outputs, 
+                    activation='linear')(x)      
+    model = Model(inputs, outputs)
+    model._name = 'ResNeXtDense'
+    return model
     
