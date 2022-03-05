@@ -1,16 +1,11 @@
 import os
-from datetime import timedelta, datetime
-from time import gmtime, strftime, time
-import tensorflow as tf
+from datetime import timedelta
+from time import time
 import numpy as np
 
 from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.optimizers import SGD
 from tensorflow.distribute import MirroredStrategy
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras import Input
-
-from utils.models import ResNeXtDense
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 from loss_function.loss import LossFunction
 
@@ -21,17 +16,20 @@ from utils.data_preprocess import load_data
 from utils.data_preprocess import get_eval_data
 
 from utils.help_methods import save
+from utils.help_methods import save_summary
 from utils.help_methods import save_dictionary_csv
 from utils.help_methods import check_folder
 from utils.help_methods import get_measurement_of_performance
 from utils.help_methods import get_permutation_match
 from utils.help_methods import cartesian_to_spherical
 
+from utils.models import ResNeXtDense
+
 ## ----------- Load and prepare data for training/evaluation -------------------
 
 NPZ_DATAFILE = os.path.join('../data', 'XB_mixed_e6_m3_clus50.npz')
 
-TOTAL_PORTION = 1      #portion of file data to be used, (0,1]
+TOTAL_PORTION = 0.3      #portion of file data to be used, (0,1]
 EVAL_PORTION = 0.2      #portion of total data for final evalutation (0,1)
 VALIDATION_SPLIT = 0.1  #portion of training data for epoch validation
 
@@ -48,7 +46,7 @@ max_mult = int(len(train_[0])/3)
 get_folder = check_folder('Training_ResNeXt/training')    
 
 my_ckpts = get_folder + "/cp-{epoch:04d}.ckpt"
-checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+checkpoint_callback = ModelCheckpoint(
     filepath=my_ckpts,
     monitor='val_loss',
     verbose=1,
@@ -60,7 +58,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 )
 
 units = 128
-cardinality = 2
+cardinality = 4
 
 strategy = MirroredStrategy()
 with strategy.scope(): ## for multi gpu single node use
@@ -70,7 +68,7 @@ with strategy.scope(): ## for multi gpu single node use
 #loss = LossFunction(max_mult, regression_loss='squared')
 
 #compile the network
-LEARNING_RATE = 1e-3    # learning rate/step size
+LEARNING_RATE = 1e-4    # learning rate/step size
 loss = LossFunction(max_mult, regression_loss='squared')
 optimizer = Adam(lr=LEARNING_RATE)
 model.compile(optimizer=Adam(lr=LEARNING_RATE), loss=loss.get(), metrics=['accuracy'])
@@ -79,13 +77,13 @@ model.compile(optimizer=Adam(lr=LEARNING_RATE), loss=loss.get(), metrics=['accur
 
 #train the network with training data
 NO_EPOCHS = 250         # no. times to go through training data
-BATCH_SIZE = 64       # the training batch size
+BATCH_SIZE = 1024       # the training batch size
 start_time = time()
 training = model.fit(train, train_,
                      epochs=NO_EPOCHS,
                      batch_size=BATCH_SIZE,
                      validation_split=VALIDATION_SPLIT,
-                     callbacks=[EarlyStopping(monitor='val_loss', patience=6), checkpoint_callback])
+                     callbacks=[EarlyStopping(monitor='val_loss', patience=3), checkpoint_callback])
 ttime = time() - start_time
 # plot the learning curve
 
@@ -110,6 +108,8 @@ nn_info = {'Loss': training.history['loss'][-1], 'P mean': meas_perf['momentum m
         'Training time': timedelta(seconds=round(ttime)), 'Data file': NPZ_DATAFILE,
         'Number of events': len(data[:,0])}
 
-# save figures and trained parameters
+# save figures, parameters etc
 save(get_folder + '/model', figure, learning_curve, model)
-save_dictionary_csv(get_folder + '/info.csv', nn_info )
+save_dictionary_csv(get_folder + '/model/info.csv', nn_info )
+save_summary(get_folder + '/model', model)
+model.save(get_folder + '/model/saved_model')
