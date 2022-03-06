@@ -142,14 +142,14 @@ class ResNeXt_BottleNeck(Layer):
 
         self.dense1 = Dense(units)
         #self.bn1 = BatchNormalization()
-        self.group_dense1 = GroupDense(units=16,
+        self.group_dense1 = GroupDense(units=units,
                                       groups=groups)               
-        self.group_dense2 = GroupDense(units=64,
+        self.group_dense2 = GroupDense(units=units,
                                       groups=groups)          
-        self.group_dense3 = GroupDense(units=32,
+        self.group_dense3 = GroupDense(units=units,
                                       groups=groups)     
-        self.dense2 = Dense(units=32)
-        self.shortcut_dense = Dense(units=32)
+        self.dense2 = Dense(units=units)
+        self.shortcut_dense = Dense(units=units)
         
     def call(self, inputs, training=None, **kwargs):
         x = self.dense1(inputs)

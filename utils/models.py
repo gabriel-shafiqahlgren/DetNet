@@ -7,6 +7,7 @@
 from tensorflow.keras import Model, Input, regularizers
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.layers import Concatenate
+from tensorflow.keras.layers import BatchNormalization
 import tensorflow.keras.backend as K
 
 from utils.layers import GraphConv
@@ -178,7 +179,7 @@ def ResNeXtDense(units=64, cardinality=32):
     no_outputs = 9
     no_inputs = 162
 
-    repeat_num_list=[1, 2, 4, 1]
+    repeat_num_list=[1, 1, 1, 1]
     inputs = Input(shape=(no_inputs,), dtype='float32')
 
     x = Dense(64, activation='relu')(inputs)
@@ -187,20 +188,19 @@ def ResNeXtDense(units=64, cardinality=32):
     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
                             repeat_num=repeat_num_list[0])(x)
     
-#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-#                             repeat_num=repeat_num_list[1])(x)
+    x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+                            repeat_num=repeat_num_list[1])(x)
     
-#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-#                             repeat_num=repeat_num_list[2])(x)
+#     x = BatchNormalization()(x)
     
-#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-#                             repeat_num=repeat_num_list[3])(x)
+    x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+                            repeat_num=repeat_num_list[2])(x)
     
-#     x = tf.keras.layers.BatchNormalization()(x)
+    x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+                            repeat_num=repeat_num_list[3])(x)
 
     outputs = Dense(no_outputs, 
                     activation='linear')(x)      
     model = Model(inputs, outputs)
     model._name = 'ResNeXtDense'
     return model
-    
