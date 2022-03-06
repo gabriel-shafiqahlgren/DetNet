@@ -44,11 +44,9 @@ max_mult = int(len(train_[0])/3)
 
 ## ---------------------- Build the neural network -----------------------------
 # initiate the network structure
- 
 
-
-units = 100
-cardinality = 5
+units = 120
+cardinality = 4
 
 # strategy = MirroredStrategy()
 # with strategy.scope(): ## for multi gpu single node use
@@ -58,9 +56,9 @@ model = ResNeXtDense(units=units,cardinality=cardinality)
 #loss = LossFunction(max_mult, regression_loss='squared')
 
 #compile the network
-LEARNING_RATE = 1e-3    # learning rate/step size
+LEARNING_RATE = 1e-4    # learning rate/step size
 loss = LossFunction(max_mult, regression_loss='squared')
-optimizer = Adam(lr=LEARNING_RATE, beta_1=0.999000, beta_2=0.99999, amsgrad=False)
+optimizer = Adam(lr=LEARNING_RATE, beta_1=0.9992500, amsgrad=False)
 model.compile(optimizer=Adam(lr=LEARNING_RATE), loss=loss.get(), metrics=['accuracy'])
 
 ## ----------------- Train the neural network and plot results -----------------
@@ -80,7 +78,7 @@ checkpoint_callback = ModelCheckpoint(
 
 #train the network with training data
 NO_EPOCHS = 200         # no. times to go through training data
-BATCH_SIZE = 350       # the training batch size
+BATCH_SIZE = 1000       # the training batch size
 start_time = time()
 training = model.fit(train, train_,
                      epochs=NO_EPOCHS,
