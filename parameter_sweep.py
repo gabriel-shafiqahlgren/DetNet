@@ -37,7 +37,7 @@ VALIDATION_SPLIT = 0.1  #portion of training data for epoch validation
 SWEEP_DATA_FOLDER = 'ann_iterations'
 NUMERIC_DATAFILE_NAME = 'numeric_data.csv'
 STRING_DATAFILE_NAME = 'info.csv'
-LOAD_FILENAME_EVAL = '2_0.1_10MeV_500000.npz' #Constant file for testing
+LOAD_FILENAME_EVAL = '3maxmul_0.1_10MeV_500000_clus300.npz' #Constant file for testing
 PORTION_ZEROS = 0.05 #portion of loaded data to be made into zero events
 COLLECTIVE_NUMERIC_DATA_FILENAME = 'data_matrix.csv'
 
@@ -46,9 +46,9 @@ COLLECTIVE_NUMERIC_DATA_FILENAME = 'data_matrix.csv'
 ls_total_port = [1] #portion of file data to be used, (0,1]
 ls_no_layers = [4]
 ls_no_nodes = [2**7]
-ls_no_epochs = [300]
+ls_no_epochs = [500]
 ls_no_batch_size = [2**8]
-ls_learning_rate = [1e-1, 1e-2]
+ls_learning_rate = [1e-4]
 ls_patience = [4] #def was 3
 
 ## Setting functions 
