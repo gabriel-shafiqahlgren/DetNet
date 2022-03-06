@@ -7,10 +7,15 @@ Script to iterate between the different parameters.
 
 Requires two data files:
     Variable data for training which is split evenly across the number of iterations
-    Constant for testing which is the same across all iterations 
+    Constant for testing which is the same across all iterations
+    
+!!!OBS!!!
+Make sure that the test file and load file have the same maxmimum multiplicity
 """
 
 import os
+import sys
+
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping
 from utils.models import FCN
@@ -37,18 +42,20 @@ VALIDATION_SPLIT = 0.1  #portion of training data for epoch validation
 SWEEP_DATA_FOLDER = 'ann_iterations'
 NUMERIC_DATAFILE_NAME = 'numeric_data.csv'
 STRING_DATAFILE_NAME = 'info.csv'
-LOAD_FILENAME_EVAL = '2_0.1_10MeV_500000.npz' #Constant file for testing
+LOAD_FILENAME_EVAL = '3maxmul_0.1_10MeV_500000_clus300.npz' #Constant file for testing
 PORTION_ZEROS = 0.05 #portion of loaded data to be made into zero events
 COLLECTIVE_NUMERIC_DATA_FILENAME = 'data_matrix.csv'
-
+LOAD_FILE_NAME = '3maxmul_0.1_10MeV_3000000_clus300.npz'
+ITERATIONS_PER_DATA_POINT = 3
+SWEEP_NAME = sys.argv[1]
 
 ## --------------- Sweep parameters
 ls_total_port = [1] #portion of file data to be used, (0,1]
-ls_no_layers = [4]
-ls_no_nodes = [2**7]
-ls_no_epochs = [300]
-ls_no_batch_size = [2**8]
-ls_learning_rate = [1e-1, 1e-2]
+ls_no_layers = [0]
+ls_no_nodes = [0]
+ls_no_epochs = [1]
+ls_no_batch_size = [2**7]
+ls_learning_rate = [1e-4]
 ls_patience = [4] #def was 3
 
 ## Setting functions 
@@ -68,8 +75,7 @@ def input_data_filename():
     return load_filename
 
 
-def input_sweep_folder_name(load_filename):
-    sweep_name = input('Sweeps will be saved in folder ' + SWEEP_DATA_FOLDER + '/')
+def input_sweep_folder_name(load_filename, sweep_name):
     if sweep_name == 'def':
         sweep_name = load_filename.replace('.npz','')
     mpath = SWEEP_DATA_FOLDER + '/' + sweep_name
@@ -140,9 +146,13 @@ def get_metrics(dMetrics, batch_size, no_nodes, no_layers, lr_rate, no_epochs, l
 
 
 
-load_filename = input_data_filename()
-sweep_folder_path = input_sweep_folder_name(load_filename)
-iterations = input_number_of_iterations()
+#load_filename = input_data_filename()
+load_filename = LOAD_FILE_NAME
+
+sweep_folder_path = input_sweep_folder_name(load_filename, SWEEP_NAME)
+
+#iterations = input_number_of_iterations()
+iterations = ITERATIONS_PER_DATA_POINT
 
 # Hope ypu have enough RAM
 npz_datafile = os.path.join(os.getcwd(), 'data', load_filename)
