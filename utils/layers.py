@@ -116,16 +116,16 @@ class GroupDense(Layer):
         self.dense_list = []
         for i in range(self.groups):
             self.dense_list.append(Dense(units=units,
-                                                         activation=activation,
-                                                         use_bias=use_bias,
-                                                         kernel_initializer=kernel_initializer,
-                                                         bias_initializer=bias_initializer,
-                                                         kernel_regularizer=kernel_regularizer,
-                                                         bias_regularizer=bias_regularizer,
-                                                         activity_regularizer=activity_regularizer,
-                                                         kernel_constraint=kernel_constraint,
-                                                         bias_constraint=bias_constraint,
-                                                         **kwargs))
+                                        activation=activation,
+                                        use_bias=use_bias,
+                                        kernel_initializer=kernel_initializer,
+                                        bias_initializer=bias_initializer,
+                                        kernel_regularizer=kernel_regularizer,
+                                        bias_regularizer=bias_regularizer,
+                                        activity_regularizer=activity_regularizer,
+                                        kernel_constraint=kernel_constraint,
+                                        bias_constraint=bias_constraint,
+                                        **kwargs))
 
     def call(self, inputs, **kwargs):
         feature_map_list = []
@@ -140,24 +140,21 @@ class ResNeXt_BottleNeck(Layer):
     def __init__(self, units, groups):
         super(ResNeXt_BottleNeck, self).__init__()
 
-        self.dense1 = Dense(units)
         #self.bn1 = BatchNormalization()
         self.group_dense1 = GroupDense(units=units,
                                       groups=groups)               
         self.group_dense2 = GroupDense(units=units,
                                       groups=groups)          
         self.group_dense3 = GroupDense(units=units,
-                                      groups=groups)     
-        self.dense2 = Dense(units=units)
+                                      groups=groups)   
+        self.dense1 = Dense(units, activation='linear')  
         self.shortcut_dense = Dense(units=units)
         
     def call(self, inputs, training=None, **kwargs):
-        x = self.dense1(inputs)
-        x = self.group_dense1(x)
+        x = self.group_dense1(inputs)
         x = self.group_dense2(x)
-        x = self.group_dense3(x)  
-        x = self.dense2(x)
-        
+        x = self.group_dense3(x)
+        x = self.dense1(x)
         shortcut = self.shortcut_dense(inputs)
         
         output = relu(add([x, shortcut]))

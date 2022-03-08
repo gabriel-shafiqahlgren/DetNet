@@ -193,11 +193,11 @@ def ResNeXtDense(units=64, cardinality=32):
     
 #     x = BatchNormalization()(x)
     
-    x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-                            repeat_num=repeat_num_list[2])(x)
+#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+#                             repeat_num=repeat_num_list[2])(x)
     
-    x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-                            repeat_num=repeat_num_list[3])(x)
+#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
+#                             repeat_num=repeat_num_list[3])(x)
 
     outputs = Dense(no_outputs, 
                     activation='linear')(x)      
