@@ -14,17 +14,31 @@ from utils.help_methods import cartesian_to_spherical
 from utils.help_methods import spherical_to_cartesian
 from utils.help_methods import get_permutation_match, get_momentum_error_dist
 
-
 from loss_function.loss import LossFunction
+
 from utils.plot_methods import plot_predictions
 
 
-data_file = os.path.join(os.getcwd(), 'data', '3maxmul_0.1_10MeV_500000_clus300.npz')
-data, labels = load_data(data_file, total_portion=1e-2)
-#labels = cartesian_to_spherical(labels, error=True)
 
-
-        
+def main():    
+    data_file = os.path.join(os.getcwd(), 'data', '3maxmul_0.1_10MeV_500000_clus300.npz')
+    data, labels = load_data(data_file, total_portion=1e-1)
+    
+    predictions, maxmult = addback(data, no_neighbors=10, energy_weighted=True, cluster=False)
+    predictions = spherical_to_cartesian(predictions)
+    labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
+    
+    #Finding out the permutation match using prebuild functions
+    loss = LossFunction(maxmult, regression_loss='squared')
+    predictions, labels = get_permutation_match(predictions, labels, loss, maxmult)
+    
+    #Check results
+    MME = get_momentum_error_dist(predictions, labels, False)
+    print('Mean momentum error MME = ', np.mean(MME))
+    
+    predictions = cartesian_to_spherical(predictions, error=True)
+    labels = cartesian_to_spherical(labels, error=True)
+    figure, rec_events = plot_predictions(predictions, labels, show_detector_angles=True)
 
 
 class Crystal:
@@ -52,8 +66,7 @@ class Crystal:
     
     def unvisit(self):
         self.visited = False
-        return False
-    
+        return False    
    
     
 def createCrystalBall():
@@ -131,6 +144,7 @@ def listOfListsToPaddedZeroArray(lst, maxmult):
             j -= 1
     return predictions
 
+
 def reshapeArrayZeroPadding(array, i, j):
     A = np.zeros([i, j])
     for k in range (i):
@@ -142,6 +156,29 @@ def reshapeArrayZeroPadding(array, i, j):
 
 
 def addback(data, no_neighbors=1, energy_weighted=False, cluster=False):
+    """
+    Parameters
+    ----------
+    data : np.array
+        Array of shape (i, 162) of event crystal values
+    no_neighbors : int, optional
+        Max number of neightbors if max energy crystal hit included in the 
+        algorithm. The default is 1.
+    energy_weighted : boolean, optional
+        Do a weighted sum of energy and theta/phi instead of taking the angles
+        of the max energy crystal as first hit. The default is False.
+    cluster : boolean, optional
+        Only visit neighbors of activated crystals. The default is False.
+
+    Returns
+    -------
+    predictions : np.array
+        Predicted E, theta, phi values for each event (row).
+    maxmult : int
+        Max number of particles predicted by addback.
+    """
+    
+    
     crystalBall = createCrystalBall()
     maxmult = 0
     predictions=[]
@@ -163,26 +200,11 @@ def addback(data, no_neighbors=1, energy_weighted=False, cluster=False):
     predictions = listOfListsToPaddedZeroArray(predictions, maxmult)
     print('Addback complete')
     return predictions, maxmult
-    
-  
-predictions, maxmult = addback(data, no_neighbors=10, energy_weighted=False, cluster=False)
-predictions = spherical_to_cartesian(predictions)
-labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
 
-#Finding out the permutation match using prebuild functions
 
-loss = LossFunction(maxmult, regression_loss='squared')
+if __name__ == "__main__":
+    main()
 
-predictions, labels = get_permutation_match(predictions, labels, loss, maxmult)
 
-#Check results
 
-MME = get_momentum_error_dist(predictions, labels, False)
-print('Mean momentum error MME = ', np.mean(MME))
-
-predictions = cartesian_to_spherical(predictions, error=True)
-labels = cartesian_to_spherical(labels, error=True)
-figure, rec_events = plot_predictions(predictions, labels, show_detector_angles=True)
-    
-    
     
