@@ -3,8 +3,7 @@ from datetime import timedelta
 from time import time
 import numpy as np
 
-from tensorflow.keras.optimizers import Adam
-from tensorflow.distribute import MirroredStrategy
+from tensorflow.keras.optimizers.experimental import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 from tensorflow.train import latest_checkpoint
 
@@ -44,24 +43,30 @@ max_mult = int(len(train_[0])/3)
 
 ## ---------------------- Build the neural network -----------------------------
 # initiate the network structure
- 
 
-
-units = 100
-cardinality = 5
-
+units = 64
+cardinality = 4
+LEARNING_RATE = 0.5e-3
+NO_EPOCHS = 1000         # no. times to go through training data
+BATCH_SIZE = 2**11      # the training batch size
+patience = 7
 # strategy = MirroredStrategy()
 # with strategy.scope(): ## for multi gpu single node use
 model = ResNeXtDense(units=units,cardinality=cardinality)
+
 
 # select mean squared error as loss function
 #loss = LossFunction(max_mult, regression_loss='squared')
 
 #compile the network
-LEARNING_RATE = 1e-3    # learning rate/step size
+    # learning rate/step size
 loss = LossFunction(max_mult, regression_loss='squared')
-optimizer = Adam(lr=LEARNING_RATE, beta_1=0.999000, beta_2=0.99999, amsgrad=False)
-model.compile(optimizer=Adam(lr=LEARNING_RATE), loss=loss.get(), metrics=['accuracy'])
+optimizer = Adam(
+    learning_rate=LEARNING_RATE, beta_1=0.99, beta_2=0.999, epsilon=1e-07, amsgrad=False,
+    clipnorm=None, clipvalue=None, global_clipnorm=None, use_ema=False,
+    ema_momentum=0.99, ema_overwrite_frequency=None, jit_compile=False,
+    name='Adam')
+model.compile(optimizer=optimizer, loss=loss.get(), metrics=['accuracy'])
 
 ## ----------------- Train the neural network and plot results -----------------
 get_folder = check_folder('Training_ResNeXt/training')    
@@ -79,14 +84,14 @@ checkpoint_callback = ModelCheckpoint(
 )
 
 #train the network with training data
-NO_EPOCHS = 200         # no. times to go through training data
-BATCH_SIZE = 350       # the training batch size
+
 start_time = time()
 training = model.fit(train, train_,
                      epochs=NO_EPOCHS,
                      batch_size=BATCH_SIZE,
                      validation_split=VALIDATION_SPLIT,
-                     callbacks=[EarlyStopping(monitor='val_loss', patience=4), checkpoint_callback])
+                     callbacks=[EarlyStopping(monitor='val_loss', patience=patience),
+                                checkpoint_callback])
 ttime = time() - start_time
 
 # Load the best weights
