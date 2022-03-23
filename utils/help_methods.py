@@ -148,7 +148,7 @@ def get_momentum_error_dist(y, y_, spherical=True):
     P_l_ = lambda q: y_[::,q::3].flatten()
 
     P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
-    P_error = [np.linalg.norm(P[:,i]) for i in range(len(y[...,0::3]))]
+    P_error = [np.linalg.norm(P[:,i]) for i in range(P.shape[1])]
     return P_error
     
 def get_measurement_of_performance(y, y_, spherical=True):
