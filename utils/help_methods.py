@@ -29,7 +29,9 @@ from contextlib import redirect_stdout
 
 from csv import writer
 
+
 DET_GEOMETRY = os.path.join(os.getcwd(), 'data', 'geom_xb.txt') 
+
 
 def get_permutation_match(y, y_, loss_function, max_mult, no_batches=10):
     
@@ -47,7 +49,6 @@ def get_permutation_match(y, y_, loss_function, max_mult, no_batches=10):
     no_params = int(len(y_[0])/max_mult)
     permutation_tensor = get_permutation_tensor(max_mult, m=no_params)
     
-
     prediction_batches = np.array_split(y, no_batches)
     labels_batches = np.array_split(y_, no_batches)
     
@@ -62,6 +63,70 @@ def get_permutation_match(y, y_, loss_function, max_mult, no_batches=10):
     
     print("Permutation time> --- %s seconds ---" % (time.time() - start_time))
     return y, new_y_
+
+def get_permutation_match_without_tensors(predictions, labels):
+    """
+    Sorts the predictions with corresponding label as the minimum of a square 
+    error loss function. This version does NOT use tensors as done in 
+    get_permutation_match
+    
+    Must be used BEFORE plotting the "lasersvärd".
+    """
+    print('Matching predicted data with correct label permutation. May take a while...')
+    
+    start_time = time.time()
+    
+    #Finding the max number of particles in labels and predictions
+    maxmult_pred = len(predictions[0,::3])
+    maxmult_labels = len(labels[0,::3])
+    
+    #Lambdas to find extract particle tripplets (px, py, pz)
+    get_P_pred = lambda i, j: predictions[i, j:j+3]
+    get_P_label = lambda i, k: labels[i, k:k+3]
+    
+    new_predictions = np.zeros(predictions.shape)
+    
+    for i in range(predictions.shape[0]):
+        #Dict as error value : [j, k] (error of predicted particle j with label praticle k)
+        error_index_dict = {}
+        available_prediction_j = []
+        
+        for j in range(maxmult_pred):
+            P_pred = get_P_pred(i, j*3) #every third index is new particle 
+            
+            if np.sum(P_pred**2) != 0: # Match only if not empty prediction (0,0,0)
+                available_prediction_j.append(j) #Save possible predicted particles to be matched
+                available_label_k = []
+                
+                for k in range(maxmult_labels):
+                    P_label = get_P_label(i, k*3)
+                    
+                    if np.sum(P_label**2) != 0:
+                        available_label_k.append(k) #Save possible labeled particles to be matched to
+                        error = np.linalg.norm(P_label - P_pred)
+                        error_index_dict[error] = [j, k]
+        
+        #Get a list with[j, k] sorted by lowest error to highest
+        sorted_errors = sorted(error_index_dict.items(), key=lambda x:x[0],reverse=False) 
+        
+        while len(available_prediction_j) > 0 and len(available_label_k) > 0:
+            
+            change = sorted_errors[0][1] # get the first element (j, k) that will have lowest error
+            
+            if change[0] in available_prediction_j and change[1] in available_label_k:
+                #Get the new prediction inde
+                new_pred_index = maxmult_pred*3 - maxmult_labels*3 + change[1]*3
+                new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, change[0]*3)
+                available_prediction_j.remove(change[0])
+                available_label_k.remove(change[1])
+                
+            del sorted_errors[0]
+            
+    return new_predictions, labels
+                
+    
+    print("Permutation time> --- %s seconds ---" % (time.time() - start_time))
+    return new_predictions, labels
 
 
 def spherical_to_cartesian(spherical):
@@ -150,7 +215,27 @@ def get_momentum_error_dist(y, y_, spherical=True):
     P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
     P_error = [np.linalg.norm(P[:,i]) for i in range(P.shape[1])]
     return P_error
-    
+
+
+def get_momentum_error_dist_ignore_zeros(y, y_, spherical=True):
+    """
+    Same as get_momentum_error_dist but ignores particles where both labels
+    and predictions are zero
+
+    """
+    if spherical:
+        y = spherical_to_cartesian(y)
+        y_ = spherical_to_cartesian(y_)
+        
+    P_l = lambda q: y[::,q::3].flatten()
+    P_l_ = lambda q: y_[::,q::3].flatten()
+
+    P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
+    # Ignoring zeros
+    P_error = [np.linalg.norm(P[:,i]) for i in range(P.shape[1]) if np.linalg.norm(P[:,i])!=0]
+    return P_error
+
+
 def get_measurement_of_performance(y, y_, spherical=True):
     """
     Returns the mean and standard deviation in the error of predicted energy, 
