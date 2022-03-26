@@ -175,31 +175,21 @@ def FCN_(no_inputs, no_outputs, no_layers, no_nodes,
         
     return Model(inputs, outputs)
     
-def ResNeXtDense(units=64, cardinality=32):
+def ResNeXtDense(units=64, cardinality=32, depth=3,  group_depth=1, blocks=2):
     no_outputs = 9
     no_inputs = 162
 
-    repeat_num_list=[1, 1, 1, 1]
     inputs = Input(shape=(no_inputs,), dtype='float32')
 
     x = Dense(units, activation='relu')(inputs)
 
-    x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-                            repeat_num=repeat_num_list[0])(x)
-    
-    x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-                            repeat_num=repeat_num_list[1])(x)
-    
-#     x = BatchNormalization()(x)
-    
-#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-#                             repeat_num=repeat_num_list[2])(x)
-    
-#     x = build_ResNeXt_block_dense(units=units,groups=cardinality,
-#                             repeat_num=repeat_num_list[3])(x)
+    x = build_ResNeXt_block_dense(units=units,
+                                  groups=cardinality,
+                                  depth=depth,
+                                  group_depth=group_depth,
+                                  repeat_num=blocks)(x)
 
-    outputs = Dense(no_outputs, 
-                    activation='linear')(x)      
+    outputs = Dense(no_outputs, activation='linear')(x)      
     model = Model(inputs, outputs)
     model._name = 'ResNeXtDense'
     return model

@@ -91,6 +91,7 @@ class GroupDense(Layer):
                  units,         
                  activation=None,
                  groups=1,
+                 group_depth=1,
                  use_bias=True,
                  kernel_initializer='glorot_uniform',
                  bias_initializer='zeros',
@@ -105,6 +106,7 @@ class GroupDense(Layer):
         self.units = units
         self.activation = activation
         self.groups = groups
+        self.group_depth = group_depth # Number of layers in one group, between split and concant
         self.use_bias = use_bias
         self.kernel_initializer = kernel_initializer
         self.bias_initializer = bias_initializer
@@ -114,62 +116,72 @@ class GroupDense(Layer):
         self.kernel_constraint = kernel_constraint
         self.bias_constraint = bias_constraint
 
-        self.dense_list = []
+        self.dense_list = [[]] * self.groups # Defines nested list of layers (matrix) 
         for i in range(self.groups):
-            self.dense_list.append(Dense(units=units,
-                                        activation=activation,
-                                        use_bias=use_bias,
-                                        kernel_initializer=kernel_initializer,
-                                        bias_initializer=bias_initializer,
-                                        kernel_regularizer=kernel_regularizer,
-                                        bias_regularizer=bias_regularizer,
-                                        activity_regularizer=activity_regularizer,
-                                        kernel_constraint=kernel_constraint,
-                                        bias_constraint=bias_constraint,
-                                        **kwargs))
+            for j in range(self.group_depth):
+                self.dense_list[i].append(Dense(units=units,
+                                            activation=activation,
+                                            use_bias=use_bias,
+                                            kernel_initializer=kernel_initializer,
+                                            bias_initializer=bias_initializer,
+                                            kernel_regularizer=kernel_regularizer,
+                                            bias_regularizer=bias_regularizer,
+                                            activity_regularizer=activity_regularizer,
+                                            kernel_constraint=kernel_constraint,
+                                            bias_constraint=bias_constraint,
+                                            **kwargs))
+        self.dense_list = np.array(self.dense_list)
 
     def call(self, inputs, **kwargs):
         feature_map_list = []
         for i in range(self.groups):
-            x_i = self.dense_list[i](split(inputs,self.groups,axis=1)[i])
+            x_i = self.dense_list[i][0](split(inputs,self.groups,axis=1)[i])
+            for j in range(1,self.group_depth):
+                x_i = self.dense_list[i,j](x_i)
             feature_map_list.append(x_i)
         out = concat(feature_map_list, axis=-1)
         return out
 
 
 class ResNeXt_BottleNeck(Layer):
-    def __init__(self, units, groups):
+    def __init__(self, units, groups, depth, group_depth):
         super(ResNeXt_BottleNeck, self).__init__()
-
-        #self.bn1 = BatchNormalization()
-        self.dense1 = Dense(units * groups, activation='relu')  
-        self.group_dense1 = GroupDense(units=units*groups,
-                                      groups=groups)               
-        self.group_dense2 = GroupDense(units=units*groups,
-                                      groups=groups)          
-        self.group_dense3 = GroupDense(units=units*groups,
-                                      groups=groups)   
-        self.dense2 = Dense(units, activation='linear')  
-        self.shortcut_dense = Dense(units=units)
+        self.depth = depth # depth: Number of group dense blocks. One group dense block splits tensor for each group, goes through the layers and then concats.
+        self.bn = BatchNormalization()
+        self.dense1 = Dense(32 * groups, activation='relu')  
+        self.group_dense = GroupDense(units=units,
+                                      groups=groups,
+                                      group_depth=group_depth)
+        
+        self.group_dense_list = []     
+        
+        for i in range(self.depth):
+            self.group_dense_list.append(GroupDense(units=units,groups=groups,group_depth=group_depth))
+            
+        self.shortcut_dense = Dense(units=units * groups)
         
     def call(self, inputs, training=None, **kwargs):
         x = self.dense1(inputs)
-        x = self.group_dense1(x)
-        x = self.group_dense2(x)
-        x = self.group_dense3(x)
-        x = self.dense2(x)
+        for i in range(self.depth):
+            x = self.group_dense_list[i](x)
+            
+#         x = self.bn(x)
         shortcut = self.shortcut_dense(inputs)
         
         output = relu(add([x, shortcut]))
         return output
 
 
-def build_ResNeXt_block_dense(units, groups, repeat_num):
+def build_ResNeXt_block_dense(units, groups, depth, group_depth, repeat_num):
     block = Sequential()
     block.add(ResNeXt_BottleNeck(units=units,
-                                 groups=groups))
+                                 groups=groups,
+                                 depth=depth,
+                                 group_depth=group_depth))
     for _ in range(1, repeat_num):
         block.add(ResNeXt_BottleNeck(units=units,
-                                     groups=groups))
+                                     groups=groups, 
+                                     depth=depth,
+                                     group_depth=group_depth))
 
     return block
