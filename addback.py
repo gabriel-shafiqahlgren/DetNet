@@ -11,26 +11,32 @@ import numpy as np
 
 from utils.data_preprocess import load_data
 from utils.help_methods import cartesian_to_spherical
-from utils.help_methods import spherical_to_cartesian
+from utils.help_methods import spherical_to_cartesian, get_permutation_match_without_tensors
 from utils.help_methods import get_permutation_match, get_momentum_error_dist
 
 from loss_function.loss import LossFunction
 
-from utils.plot_methods import plot_predictions
+from utils.plot_methods import plot_predictions_bar
 
 
 
-def main():    
+def main():
     data_file = os.path.join(os.getcwd(), 'data', '3maxmul_0.1_10MeV_500000_clus300.npz')
-    data, labels = load_data(data_file, total_portion=1e-1)
+    data, labels = load_data(data_file, total_portion=1)
     
-    predictions, maxmult = addback(data, no_neighbors=10, energy_weighted=True, cluster=False)
+    predictions, maxmult = addback(data, no_neighbors=1, energy_weighted=True, cluster=False)
     predictions = spherical_to_cartesian(predictions)
-    labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
     
-    #Finding out the permutation match using prebuild functions
-    loss = LossFunction(maxmult, regression_loss='squared')
-    predictions, labels = get_permutation_match(predictions, labels, loss, maxmult)
+    #Finding out the permutation match using prebuilt functions
+    #labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
+    #loss = LossFunction(maxmult, regression_loss='squared')
+    #predictions, labels = get_permutation_match(predictions, labels, loss, maxmult, no_batches=100)
+    
+    
+    predictions, labels = get_permutation_match_without_tensors(predictions, labels)
+    
+    #Labels reshaped here is not using permutation match with tensors
+    labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
     
     #Check results
     MME = get_momentum_error_dist(predictions, labels, False)
@@ -38,7 +44,7 @@ def main():
     
     predictions = cartesian_to_spherical(predictions, error=True)
     labels = cartesian_to_spherical(labels, error=True)
-    figure, rec_events = plot_predictions(predictions, labels, show_detector_angles=True)
+    figure, rec_events = plot_predictions_bar(predictions, labels, show_detector_angles=True)
 
 
 class Crystal:

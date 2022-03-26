@@ -121,6 +121,11 @@ def get_permutation_match_without_tensors(predictions, labels):
                 available_label_k.remove(change[1])
                 
             del sorted_errors[0]
+        
+        # Comment out here to remove zero matched events
+        for l in range(len(available_prediction_j)):
+            new_pred_index = l*3
+            new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, available_prediction_j[l])
             
     return new_predictions, labels
                 
