@@ -11,8 +11,8 @@ import numpy as np
 
 from utils.data_preprocess import load_data
 from utils.help_methods import cartesian_to_spherical
-from utils.help_methods import spherical_to_cartesian, get_permutation_match_without_tensors
-from utils.help_methods import get_permutation_match, get_momentum_error_dist
+from utils.help_methods import spherical_to_cartesian, get_momentum_error_dist
+from utils.help_methods import get_permutation_match, get_permutation_match_with_lists, get_permutation_match_with_permutations
 
 from loss_function.loss import LossFunction
 
@@ -21,29 +21,38 @@ from utils.plot_methods import plot_predictions_bar
 
 
 def main():
-    data_file = os.path.join(os.getcwd(), 'data', '3maxmul_0.1_10MeV_500000_clus300.npz')
-    data, labels = load_data(data_file, total_portion=1)
+    MATCH_PREDICTION_METHODS = {'tensors':1, 'list':2, 'permutations':3}
     
-    predictions, maxmult = addback(data, no_neighbors=1, energy_weighted=True, cluster=False)
+    
+    
+    #Choose prediction method
+    prediction_method = MATCH_PREDICTION_METHODS['permutations']
+    
+    data_file = os.path.join(os.getcwd(), 'data', '3maxmul_0.1_10MeV_500000_clus300.npz')
+    data, labels = load_data(data_file, total_portion=1e-1)
+    
+    predictions, maxmult = addback(data, no_neighbors=2, energy_weighted=True, cluster=False)
     predictions = spherical_to_cartesian(predictions)
     
-    #Finding out the permutation match using prebuilt functions
-    #labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
-    #loss = LossFunction(maxmult, regression_loss='squared')
-    #predictions, labels = get_permutation_match(predictions, labels, loss, maxmult, no_batches=100)
+    if prediction_method == 1:
+        labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
+        loss = LossFunction(maxmult, regression_loss='squared')
+        predictions, labels = get_permutation_match(predictions, labels, loss, maxmult, no_batches=100)
     
-    
-    predictions, labels = get_permutation_match_without_tensors(predictions, labels)
-    
-    #Labels reshaped here is not using permutation match with tensors
-    labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
-    
+    elif prediction_method == 2:
+        predictions, labels = get_permutation_match_with_lists(predictions, labels)
+        labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
+        
+    elif prediction_method == 3:
+        predictions, labels = get_permutation_match_with_permutations(predictions, labels)
+        labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
+        
     #Check results
-    MME = get_momentum_error_dist(predictions, labels, False)
-    print('Mean momentum error MME = ', np.mean(MME))
+    ME_dist = get_momentum_error_dist(predictions, labels, False)
+    print('Total momentum error MME = ', np.sum(ME_dist))
     
-    predictions = cartesian_to_spherical(predictions, error=True)
-    labels = cartesian_to_spherical(labels, error=True)
+    predictions = cartesian_to_spherical(predictions, error=False)
+    labels = cartesian_to_spherical(labels, error=False)
     figure, rec_events = plot_predictions_bar(predictions, labels, show_detector_angles=True)
 
 

@@ -29,6 +29,8 @@ from contextlib import redirect_stdout
 
 from csv import writer
 
+from itertools import permutations
+
 
 DET_GEOMETRY = os.path.join(os.getcwd(), 'data', 'geom_xb.txt') 
 
@@ -64,11 +66,15 @@ def get_permutation_match(y, y_, loss_function, max_mult, no_batches=10):
     print("Permutation time> --- %s seconds ---" % (time.time() - start_time))
     return y, new_y_
 
-def get_permutation_match_without_tensors(predictions, labels):
+def get_permutation_match_with_lists(predictions, labels):
     """
-    Sorts the predictions with corresponding label as the minimum of a square 
-    error loss function. This version does NOT use tensors as done in 
-    get_permutation_match
+    Sorts the predictions with corresponding label as the minimum of the regular
+    eclidean 2-norm. This version does NOT use tensors as done in
+    get_permutation_match and instead uses lists
+    
+    INVARIANT
+    Labels and predictions must be of the form
+    0,0,0, ... 0,0,0, px1, py1, pz1, px2, py2, pz2m, ... 
     
     Must be used BEFORE plotting the "lasersvärd".
     """
@@ -125,10 +131,107 @@ def get_permutation_match_without_tensors(predictions, labels):
         # Comment out here to remove zero matched events
         for l in range(len(available_prediction_j)):
             new_pred_index = l*3
-            new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, available_prediction_j[l])
-            
-    return new_predictions, labels
+            new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, available_prediction_j[l]*3)
                 
+    
+    print("Permutation time> --- %s seconds ---" % (time.time() - start_time))
+    return new_predictions, labels
+
+
+def get_permutation_match_with_permutations(predictions, labels):
+    """
+    Sorts the predictions with corresponding label as the minimum of the regular
+    eclidean 2-norm. This version does NOT use tensors as done in
+    get_permutation_match and instead uses permutations of lists.
+    
+    INVARIANT
+    Labels and predictions must be of the form
+    0,0,0, ... 0,0,0, px1, py1, pz1, px2, py2, pz2m, ... 
+    
+    Must be used BEFORE plotting the "lasersvärd".
+    """
+    print('Matching predicted data with correct label permutation. May take a while...')
+    
+    start_time = time.time()
+    
+    #Finding the max number of particles in labels and predictions
+    maxmult_pred = len(predictions[0,::3])
+    maxmult_labels = len(labels[0,::3])
+    
+    #Lambdas to find extract particle tripplets (px, py, pz)
+    get_P_pred = lambda i, j: predictions[i, j:j+3]
+    get_P_label = lambda i, k: labels[i, k:k+3]
+    
+    new_predictions = np.zeros(predictions.shape)
+    
+    for i in range(predictions.shape[0]):
+        #Save memory by ignoring zero events
+        available_prediction_j = []
+        for j in range(maxmult_pred):
+            P_pred = get_P_pred(i, j*3) #every third index is new particle 
+            if np.sum(P_pred**2) != 0: # Match only if not empty prediction (0,0,0)
+                available_prediction_j.append(j) #Save possible predicted particles to be matched
+        
+        available_label_k = []
+        for k in range(maxmult_labels):
+            P_label = get_P_label(i, k*3)
+            if np.sum(P_label**2) != 0:
+                available_label_k.append(k) #Save possible labeled particles to be matched to
+        
+        pred_mult = len(available_prediction_j)
+        label_mult = len(available_label_k)
+        
+        if pred_mult >= label_mult: # label_mult is the limit
+        
+            j_permutations = list(permutations(available_prediction_j, label_mult))
+            error_dict = {}
+            
+            for permutation in j_permutations:
+                error = 0
+                for l in range(label_mult):
+                    P_pred = get_P_pred(i, permutation[l]*3)
+                    P_label = get_P_label(i, available_label_k[l]*3)
+                    error += np.linalg.norm(P_pred - P_label)
+                error_dict[error] = list(permutation) #Is necessary to tuple -> list 
+                
+            sorted_errors = sorted(error_dict.items(), key=lambda x:x[0],reverse=False) 
+            optimal_permutation = sorted_errors[0][1] 
+            
+            for m in range(label_mult):
+                new_pred_index = (maxmult_pred - maxmult_labels + available_label_k[m])*3
+                
+                new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, optimal_permutation[m]*3)
+                available_prediction_j.remove(optimal_permutation[m])
+            
+            for n in range(len(available_prediction_j)):
+                new_pred_index = n*3
+                new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, available_prediction_j[n]*3)
+                #available_prediction_j.remove(available_prediction_j[n])
+
+            
+            
+        elif pred_mult < label_mult:
+            
+            k_permutations = list(permutations(available_label_k, pred_mult))
+            error_dict = {}
+            
+            for permutation in k_permutations:
+                error = 0 
+                for l in range(pred_mult):
+                    P_pred = get_P_pred(i, available_prediction_j[l]*3)
+                    P_label = get_P_label(i, permutation[l]*3)
+                    error += np.linalg.norm(P_pred - P_label)
+                error_dict[error] = list(permutation) #Is necessary to tuple -> list
+            
+            sorted_errors = sorted(error_dict.items(), key=lambda x:x[0],reverse=False) 
+            optimal_permutation = sorted_errors[0][1]
+            
+            for m in range(pred_mult):
+                new_pred_index = (maxmult_pred - maxmult_labels + optimal_permutation[m])*3
+                new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, available_prediction_j[m]*3)
+                #available_prediction_j.remove(available_prediction_j[m])
+                
+            
     
     print("Permutation time> --- %s seconds ---" % (time.time() - start_time))
     return new_predictions, labels
@@ -171,7 +274,7 @@ def cartesian_to_spherical(cartesian, error=False):
     if error:
         zero_to_random = 0
     else:
-        zero_to_random = np.random.uniform(low=-1.0, high=-.5, size=np.shape(energy))
+        zero_to_random = np.random.uniform(low=-1.0, high=-.1, size=np.shape(energy))
     
     theta = np.where(energy <tol , 0, get_theta(pz, energy))
     phi = np.where(energy <tol , 0, get_phi(py, px))
