@@ -14,7 +14,7 @@ from utils.layers import GraphConv
 from utils.layers import res_net_block
 from utils.layers import non_res_block
 from utils.layers import dense_res_net_block
-from utils.layers import build_ResNeXt_block_dense
+from utils.layers import ResNeXt_block
 
 from utils.tensors import get_adjacency_matrix
 
@@ -175,7 +175,7 @@ def FCN_(no_inputs, no_outputs, no_layers, no_nodes,
         
     return Model(inputs, outputs)
     
-def ResNeXtDense(units=64, cardinality=32, depth=3,  group_depth=1, blocks=2):
+def ResNeXtDense(units=64, cardinality=32, group_depth=1,  list_depth=3, blocks=1, batch_norm=False):
     no_outputs = 9
     no_inputs = 162
 
@@ -183,11 +183,12 @@ def ResNeXtDense(units=64, cardinality=32, depth=3,  group_depth=1, blocks=2):
 
     x = Dense(units, activation='relu')(inputs)
 
-    x = build_ResNeXt_block_dense(units=units,
-                                  groups=cardinality,
-                                  depth=depth,
-                                  group_depth=group_depth,
-                                  repeat_num=blocks)(x)
+    x = ResNeXt_block(units=units,
+                      groups=cardinality,
+                      group_depth=group_depth,
+                      list_depth=list_depth,
+                      repeat_num=blocks,
+                      batch_norm=batch_norm)(x)
 
     outputs = Dense(no_outputs, activation='linear')(x)      
     model = Model(inputs, outputs)
