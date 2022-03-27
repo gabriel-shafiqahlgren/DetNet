@@ -78,7 +78,7 @@ def non_res_block(input_data, filters, conv_size):
 
 def dense_res_net_block(x, no_nodes, no_skipped_layers):
     if no_skipped_layers == 0:
-       output = Dense(no_nodes, activation='relu')(x)
+        output = Dense(no_nodes, activation='relu')(x)
     else:
         y = Dense(no_nodes, activation='relu')(x)
         for i in range(no_skipped_layers-1):
@@ -86,63 +86,44 @@ def dense_res_net_block(x, no_nodes, no_skipped_layers):
         output = Add()([x, y])
     return output
 
+class ListDense(Layer):
+    def __init__(self, 
+                 units=100,    
+                 depth=5):
+        super(ListDense, self).__init__()    
+        
+        self.units = units
+        self.depth = depth        
+        self.layers = [Dense(units) for i in range(depth)]
+        
+    def call(self, inputs):
+        x = self.layers[0](inputs)
+        for i in range(1,self.depth):
+            x = self.layers[i](x)
+            
+        return x
+
 class GroupDense(Layer):
     def __init__(self, 
-                 units,         
-                 activation=None,
+                 units=100,         
                  groups=1,
-                 group_depth=1,
-                 use_bias=True,
-                 kernel_initializer='glorot_uniform',
-                 bias_initializer='zeros',
-                 kernel_regularizer=None,
-                 bias_regularizer=None,
-                 activity_regularizer=None,
-                 kernel_constraint=None,
-                 bias_constraint=None,
-                 **kwargs):
+                 group_depth=1):
         super(GroupDense, self).__init__()
 
         self.units = units
-        self.activation = activation
         self.groups = groups
-        self.group_depth = group_depth # Number of layers in one group, between split and concant
-        self.use_bias = use_bias
-        self.kernel_initializer = kernel_initializer
-        self.bias_initializer = bias_initializer
-        self.kernel_regularizer = kernel_regularizer
-        self.bias_regularizer = bias_regularizer
-        self.activity_regularizer = activity_regularizer
-        self.kernel_constraint = kernel_constraint
-        self.bias_constraint = bias_constraint
+        self.group_depth = group_depth
+        
+        self.listDense = [ListDense(units, group_depth) for i in range(groups)]
 
-        self.dense_list = [[]] * self.groups # Defines nested list of layers (matrix) 
-        for i in range(self.groups):
-            for j in range(self.group_depth):
-                self.dense_list[i].append(Dense(units=units,
-                                            activation=activation,
-                                            use_bias=use_bias,
-                                            kernel_initializer=kernel_initializer,
-                                            bias_initializer=bias_initializer,
-                                            kernel_regularizer=kernel_regularizer,
-                                            bias_regularizer=bias_regularizer,
-                                            activity_regularizer=activity_regularizer,
-                                            kernel_constraint=kernel_constraint,
-                                            bias_constraint=bias_constraint,
-                                            **kwargs))
-        self.dense_list = np.array(self.dense_list)
-
-    def call(self, inputs, **kwargs):
+    def call(self, inputs):
         feature_map_list = []
         for i in range(self.groups):
-            x_i = self.dense_list[i][0](split(inputs,self.groups,axis=1)[i])
-            for j in range(1,self.group_depth):
-                x_i = self.dense_list[i,j](x_i)
+            x_i = self.listDense[i](split(inputs,self.groups,axis=1)[i])
             feature_map_list.append(x_i)
         out = concat(feature_map_list, axis=-1)
         return out
-
-
+    
 class ResNeXt_BottleNeck(Layer):
     def __init__(self, units, groups, depth, group_depth):
         super(ResNeXt_BottleNeck, self).__init__()
