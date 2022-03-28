@@ -6,6 +6,7 @@
 from tensorflow.keras.backend import square
 from tensorflow.keras.backend import sqrt
 from tensorflow.keras.backend import log
+from tensorflow.math import maximum
 
 
 DELTA = 1
@@ -25,7 +26,7 @@ def absolute_error(px, py, pz, px_, py_, pz_):
     Pretty much the same as square_error with an additional square root
     
     """
-    return sqrt(squared_error(px, py, pz, px_, py_, pz_))
+    return sqrt(maximum(squared_error(px, py, pz, px_, py_, pz_), 1e-9))
 
 
 ## OBS. NOT USING KERAS STUFF...
