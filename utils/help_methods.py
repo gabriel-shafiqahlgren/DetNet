@@ -324,24 +324,20 @@ def get_momentum_error_dist(y, y_, spherical=True):
     P_error = [np.linalg.norm(P[:,i]) for i in range(P.shape[1])]
     return P_error
 
-
-def get_momentum_error_dist_ignore_zeros(y, y_, spherical=True):
-    """
-    Same as get_momentum_error_dist but ignores particles where both labels
-    and predictions are zero
-
-    """
+def MSE(y, y_, spherical=True):
     if spherical:
         y = spherical_to_cartesian(y)
         y_ = spherical_to_cartesian(y_)
-        
+
     P_l = lambda q: y[::,q::3].flatten()
     P_l_ = lambda q: y_[::,q::3].flatten()
 
+
     P = np.vstack([P_l(0) - P_l_(0),P_l(1) - P_l_(1), P_l(2)- P_l_(2)])
-    # Ignoring zeros
-    P_error = [np.linalg.norm(P[:,i]) for i in range(P.shape[1]) if np.linalg.norm(P[:,i])!=0]
-    return P_error
+
+
+    squared_error = [np.dot(P[:,i],P[:,i]) for i in range(P.shape[1])]
+    return np.mean(squared_error)
 
 
 def get_measurement_of_performance(y, y_, spherical=True):
@@ -419,7 +415,8 @@ def save_figs(folder, figs, model):
         figures.savefig(folder +'fig' + str(i) +'.png', format='png')
         i += 1
         
-    model.save_weights(folder + 'weights.h5')
+    if model is not None:
+        model.save_weights(folder + 'weights.h5')
     return folder
  
 def get_available_gpus():

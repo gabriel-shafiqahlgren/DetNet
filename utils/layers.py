@@ -78,7 +78,7 @@ def non_res_block(input_data, filters, conv_size):
 
 def dense_res_net_block(x, no_nodes, no_skipped_layers):
     if no_skipped_layers == 0:
-       output = Dense(no_nodes, activation='relu')(x)
+        output = Dense(no_nodes, activation='relu')(x)
     else:
         y = Dense(no_nodes, activation='relu')(x)
         for i in range(no_skipped_layers-1):
@@ -86,90 +86,99 @@ def dense_res_net_block(x, no_nodes, no_skipped_layers):
         output = Add()([x, y])
     return output
 
-class GroupDense(Layer):
+class ListDense(Layer):
+    '''
+    A 'rectangular' basic FCN used in GroupDense.
+    '''
     def __init__(self, 
-                 units,         
-                 activation=None,
-                 groups=1,
-                 use_bias=True,
-                 kernel_initializer='glorot_uniform',
-                 bias_initializer='zeros',
-                 kernel_regularizer=None,
-                 bias_regularizer=None,
-                 activity_regularizer=None,
-                 kernel_constraint=None,
-                 bias_constraint=None,
-                 **kwargs):
+                 units=100,    
+                 list_depth=5):
+        super(ListDense, self).__init__()    
+        
+        self.units = units
+        self.list_depth = list_depth        
+        self.layers = [Dense(units, activation='relu') for i in range(list_depth)]
+        
+    def call(self, inputs):
+        x = self.layers[0](inputs)
+        for i in range(1,self.list_depth):
+            x = self.layers[i](x)
+            
+        return x
+
+class GroupDense(Layer):
+    '''
+    Splits input tensor to a number (cardinality/group) of 'ListDense' layers
+    and then concats the output of each group.
+    '''
+    def __init__(self, 
+                 units=100,         
+                 groups=3,
+                 list_depth=3):
         super(GroupDense, self).__init__()
 
         self.units = units
-        self.activation = activation
         self.groups = groups
-        self.use_bias = use_bias
-        self.kernel_initializer = kernel_initializer
-        self.bias_initializer = bias_initializer
-        self.kernel_regularizer = kernel_regularizer
-        self.bias_regularizer = bias_regularizer
-        self.activity_regularizer = activity_regularizer
-        self.kernel_constraint = kernel_constraint
-        self.bias_constraint = bias_constraint
+        self.list_depth = list_depth
+        
+        self.listDense = [ListDense(units, list_depth) for i in range(groups)]
 
-        self.dense_list = []
-        for i in range(self.groups):
-            self.dense_list.append(Dense(units=units,
-                                        activation=activation,
-                                        use_bias=use_bias,
-                                        kernel_initializer=kernel_initializer,
-                                        bias_initializer=bias_initializer,
-                                        kernel_regularizer=kernel_regularizer,
-                                        bias_regularizer=bias_regularizer,
-                                        activity_regularizer=activity_regularizer,
-                                        kernel_constraint=kernel_constraint,
-                                        bias_constraint=bias_constraint,
-                                        **kwargs))
-
-    def call(self, inputs, **kwargs):
+    def call(self, inputs):
         feature_map_list = []
         for i in range(self.groups):
-            x_i = self.dense_list[i](split(inputs,self.groups,axis=1)[i])
+            x_i = self.listDense[i](split(inputs,self.groups,axis=1)[i])
             feature_map_list.append(x_i)
         out = concat(feature_map_list, axis=-1)
         return out
-
-
-class ResNeXt_BottleNeck(Layer):
-    def __init__(self, units, groups):
-        super(ResNeXt_BottleNeck, self).__init__()
-
-        #self.bn1 = BatchNormalization()
-        self.dense1 = Dense(units * groups, activation='relu')  
-        self.group_dense1 = GroupDense(units=units*groups,
-                                      groups=groups)               
-        self.group_dense2 = GroupDense(units=units*groups,
-                                      groups=groups)          
-        self.group_dense3 = GroupDense(units=units*groups,
-                                      groups=groups)   
-        self.dense2 = Dense(units, activation='linear')  
-        self.shortcut_dense = Dense(units=units)
+    
+class ResNeXt(Layer):
+    '''
+    units: Number of neurons in each 'Dense' fully connected layer.
+    groups: Number of times to split the input tensor and send each part to a list of cascading dense layers.
+    group_depth: Number of 'Group Dense' layers in one ResNeXt block, normally '1' in ResNeXt.
+    list_depth: Number of 'Dense' layers in one group (ListDense) in a 'Group Dense' layer.
+    
+    Important to initialize layers in __init__.
+    '''
+    def __init__(self, units, groups, group_depth, list_depth, batch_norm):
+        super(ResNeXt, self).__init__()
+        self.group_depth = group_depth
+        self.batch_norm = batch_norm
+        
+        self.bn = BatchNormalization()
+        
+        self.dense = Dense(32 * groups, activation='relu')  
+        
+        self.group_dense_list = [GroupDense(units=units,groups=groups,list_depth=list_depth) for i in range(group_depth)]     
+            
+        self.shortcut_dense = Dense(units=units * groups)
         
     def call(self, inputs, training=None, **kwargs):
-        x = self.dense1(inputs)
-        x = self.group_dense1(x)
-        x = self.group_dense2(x)
-        x = self.group_dense3(x)
-        x = self.dense2(x)
+        x = self.dense(inputs)
+        for i in range(self.group_depth):
+            x = self.group_dense_list[i](x)
+            
+        if self.batch_norm:            
+            x = self.bn(x) 
+            
         shortcut = self.shortcut_dense(inputs)
         
         output = relu(add([x, shortcut]))
         return output
 
 
-def build_ResNeXt_block_dense(units, groups, repeat_num):
+def ResNeXt_block(units, groups, group_depth, list_depth, repeat_num, batch_norm):
     block = Sequential()
-    block.add(ResNeXt_BottleNeck(units=units,
-                                 groups=groups))
+    block.add(ResNeXt(units=units,
+                     groups=groups,
+                     group_depth=group_depth,
+                     list_depth=list_depth,
+                     batch_norm=batch_norm))
     for _ in range(1, repeat_num):
-        block.add(ResNeXt_BottleNeck(units=units,
-                                     groups=groups))
+        block.add(ResNeXt(units=units,
+                         groups=groups, 
+                         group_depth=group_depth,
+                         list_depth=list_depth,
+                         batch_norm=batch_norm))
 
     return block

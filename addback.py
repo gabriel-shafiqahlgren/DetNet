@@ -16,7 +16,7 @@ from utils.help_methods import get_permutation_match, get_permutation_match_with
 
 from loss_function.loss import LossFunction
 
-from utils.plot_methods import plot_predictions_bar
+from utils.plot_methods import plot_predictions_bar_addback
 
 
 
@@ -24,14 +24,14 @@ def main():
     MATCH_PREDICTION_METHODS = {'tensors':1, 'list':2, 'permutations':3}
     
     
-    
+    PORTION_ZEROS = 0.05
     #Choose prediction method
     prediction_method = MATCH_PREDICTION_METHODS['permutations']
     
     data_file = os.path.join(os.getcwd(), 'data', '3maxmul_0.1_10MeV_500000_clus300.npz')
-    data, labels = load_data(data_file, total_portion=1e-1)
+    data, labels = load_data(data_file, total_portion=1, portion_zeros=PORTION_ZEROS)
     
-    predictions, maxmult = addback(data, no_neighbors=2, energy_weighted=True, cluster=False)
+    predictions, maxmult = addback(data, no_neighbors=1, energy_weighted=True, cluster=False)
     predictions = spherical_to_cartesian(predictions)
     
     if prediction_method == 1:
@@ -53,7 +53,7 @@ def main():
     
     predictions = cartesian_to_spherical(predictions, error=False)
     labels = cartesian_to_spherical(labels, error=False)
-    figure, rec_events = plot_predictions_bar(predictions, labels, show_detector_angles=True)
+    figure, rec_events = plot_predictions_bar_addback(predictions, labels, show_detector_angles=True)
 
 
 class Crystal:
