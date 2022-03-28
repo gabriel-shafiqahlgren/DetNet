@@ -201,6 +201,14 @@ def ResNeXtHybrid(units, group_depth = 1, blocks = 1, batch_norm=True):
     # units: a matrix, with each column is a group of layers,
     # assuming first column is one of the deepest and all groups have the same
     # amount of neurons in the last layer, if not it wont be able to concat.
+    
+    # Example for units: units = 500 * np.array([[1,1,1],[1,1,0],[1,0,0]])
+    # The groups/paths are the columns of the 'units' matrix.
+    # Doesnt have to a square matrix. Cant have a zero in middle of a group, will cause problems.
+    
+    # 'group_depth' is the number of GroupDense layers.
+    # 'blocks' is the number of ResNeXt_hybrid_block.
+    
     inputs = Input(shape=(no_inputs,), dtype='float32')
 
     x = ResNeXt_hybrid_block(units=units,
