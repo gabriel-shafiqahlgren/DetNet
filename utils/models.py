@@ -10,6 +10,8 @@ from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.layers import BatchNormalization
 import tensorflow.keras.backend as K
 
+import os
+
 from utils.layers import GraphConv
 from utils.layers import res_net_block
 from utils.layers import non_res_block
@@ -268,7 +270,10 @@ def CNN(no_inputs, no_outputs, depth=3, width=80, filters = [256, 16, 4],
     else:
         refl = ""
     
-    MAT_PATH = '../ConvolutionalMatrix/'
+    MAT_PATH = os.path.dirname(__file__) + '/../ConvolutionalMatrix/'
+    print(MAT_PATH)
+    
+    #MAT_PATH = '.../ConvolutionalMatrix/'
     
     A_mat = np.load(MAT_PATH+'A_mat_'+sort+rot+refl+'.npy')
     D_mat = np.load(MAT_PATH+'D_mat_'+sort+rot+refl+'.npy')
