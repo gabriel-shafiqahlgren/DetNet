@@ -68,6 +68,8 @@ def get_permutation_match(y, y_, loss_function, max_mult, no_batches=10):
 
 def get_permutation_match_with_lists(predictions, labels):
     """
+    DEPRICIATED
+    
     Sorts the predictions with corresponding label as the minimum of the regular
     eclidean 2-norm. This version does NOT use tensors as done in
     get_permutation_match and instead uses lists
@@ -188,10 +190,16 @@ def get_permutation_match_with_permutations(predictions, labels):
             
             for permutation in j_permutations:
                 error = 0
+                
                 for l in range(label_mult):
                     P_pred = get_P_pred(i, permutation[l]*3)
                     P_label = get_P_label(i, available_label_k[l]*3)
                     error += np.linalg.norm(P_pred - P_label)
+                not_included = list(set(permutation) ^ set(available_prediction_j))
+                
+                for particle_index in not_included:
+                    error += np.linalg.norm(get_P_pred(i, particle_index*3))
+                   
                 error_dict[error] = list(permutation) #Is necessary to tuple -> list 
                 
             sorted_errors = sorted(error_dict.items(), key=lambda x:x[0],reverse=False) 

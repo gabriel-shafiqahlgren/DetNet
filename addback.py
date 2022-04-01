@@ -19,7 +19,6 @@ from loss_function.loss import LossFunction
 from utils.plot_methods import plot_predictions_bar_addback
 
 
-
 def main():
     MATCH_PREDICTION_METHODS = {'tensors':1, 'list':2, 'permutations':3}
     
@@ -119,34 +118,62 @@ def setCrystalBall(crystalBall, event):
 
 
 def findHit(crystalBall, ci, no_neighbors, weighted, cluster): #ci crystal index
-    E, theta, phi = 0, 0, 0
-    E, theta, phi = sumNeighbors(crystalBall, ci, no_neighbors, weighted, cluster, E, theta, phi)
+    #E, theta, phi = 0, 0, 0
+    #E, theta, phi = sumNeighbors(crystalBall, ci, no_neighbors, weighted, cluster, E, theta, phi)
+    
+    
     if weighted:
-        theta = theta/E
-        phi = phi/E
+        E = 0
+        P = np.zeros(3)
+        E, P = sumNeighbors_weighted(crystalBall, ci, no_neighbors, cluster, E, P)
+        spherical = cartesian_to_spherical1D(P/E)
+        theta = spherical[1]
+        phi = spherical[2]
+        
     else:
+        E, theta, phi = 0, 0, 0
+        E, theta, phi = sumNeighbors(crystalBall, ci, no_neighbors, cluster, E, theta, phi)
         theta = crystalBall[ci].theta
         phi = crystalBall[ci].phi
+        
     return E, theta, phi
 
 
-def sumNeighbors(crystalBall, ci, nn, weighted, cluster, E, theta, phi):
+def sumNeighbors(crystalBall, ci, nn, cluster, E, theta, phi):
     crystal = crystalBall[ci]
     if not crystal.visited:
         crystal.visit()
         E += crystal.E
-        if weighted:
-            theta += crystal.E*crystal.theta
-            phi += crystal.E*crystal.phi
         if not cluster:
             if nn > 0:
                 for neighbor_ci in crystal.neighbors:
-                    E, theta, phi = sumNeighbors(crystalBall, neighbor_ci, nn-1, weighted, cluster, E, theta, phi)
+                    E, theta, phi = sumNeighbors(crystalBall, neighbor_ci, nn-1, cluster, E, theta, phi)
         if cluster:
             if nn > 0 and crystal.E != 0.:
                 for neighbor_ci in crystal.neighbors:
-                    E, theta, phi = sumNeighbors(crystalBall, neighbor_ci, nn-1, weighted, cluster, E, theta, phi)
+                    E, theta, phi = sumNeighbors(crystalBall, neighbor_ci, nn-1, cluster, E, theta, phi)
     return E, theta, phi
+
+
+def sumNeighbors_weighted(crystalBall, ci, nn, cluster, E, P):
+    crystal = crystalBall[ci]
+    if not crystal.visited:
+        crystal.visit()
+        E += crystal.E
+
+        spherical = np.array([crystal.E, crystal.theta, crystal.phi])
+        P_crystal = spherical_to_cartesian1D(spherical)
+        P = P + P_crystal 
+        if not cluster:
+            if nn > 0:
+                for neighbor_ci in crystal.neighbors:
+                    E, P = sumNeighbors_weighted(crystalBall, neighbor_ci, nn-1, cluster, E, P)
+        if cluster:
+            if nn > 0 and crystal.E != 0.:
+                for neighbor_ci in crystal.neighbors:
+                    E, P = sumNeighbors_weighted(crystalBall, neighbor_ci, nn-1, cluster, E, P)
+    return E, P
+
 
 
 def listOfListsToPaddedZeroArray(lst, maxmult):
@@ -169,6 +196,32 @@ def reshapeArrayZeroPadding(array, i, j):
             l -= 1
     return A
 
+def cartesian_to_spherical1D(P):
+    px = P[0]
+    py = P[1]
+    pz = P[2]
+    
+    E = np.sqrt(px*px + py*py + pz*pz)
+    if E == 0:
+        theta, phi = 0, 0
+    else:
+        theta = np.arccos(pz/E)
+        phi = np.arctan2(py, px)
+        phi = np.mod(phi, 2*np.pi)
+    
+    return np.array([E, theta, phi])
+    
+    
+def spherical_to_cartesian1D(spherical):
+    energy = spherical[0]
+    theta = spherical[1]
+    phi = spherical[2]
+    
+    px = np.sin(theta)*np.cos(phi)*energy    
+    py = np.sin(theta)*np.sin(phi)*energy
+    pz = np.cos(theta)*energy
+    
+    return np.array([px, py, pz])
 
 def addback(data, no_neighbors=1, energy_weighted=False, cluster=False):
     """
