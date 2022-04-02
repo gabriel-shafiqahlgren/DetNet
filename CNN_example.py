@@ -22,6 +22,7 @@ from loss_function.loss import LossFunction
 from utils.data_preprocess import load_data, get_eval_data
 from utils.help_methods import get_permutation_match, cartesian_to_spherical, get_measurement_of_performance
 from contextlib import redirect_stdout
+from utils.plot_methods import plot_predictions
 
 
 ## ----------------------------- PARAMETERS -----------------------------------
@@ -36,7 +37,7 @@ VALIDATION_SPLIT = 0.1                          #portion of training data for ep
 CARTESIAN = True                                #train with cartesian coordinates instead of spherical
 CLASSIFICATION = False                          #train with classification nodes
 
-NO_EPOCHS = 500
+NO_EPOCHS = 30
                                                #Number of times to go through training data
 BATCH_SIZE = 2**8                                #The training batch size
 LEARNING_RATE = 1e-4                            #Learning rate/step size
@@ -125,14 +126,16 @@ def main():
         epocs = NO_EPOCHS
     #plot predictions on evaluation data
     predictions = model.predict(eval_data)
-
+    
+    if PERMUTATION:
+        predictions, labels = get_permutation_match(predictions, eval_labels, loss, max_mult)
     
     if CARTESIAN:
         predictions = cartesian_to_spherical(predictions)
         eval_labels = cartesian_to_spherical(eval_labels)    
-    if PERMUTATION:
-        predictions, labels = get_permutation_match(predictions, eval_labels, loss, max_mult)
-
+   
+        
+    plot_predictions(predictions, eval_labels)
     
     #save weights
     model.save_weights(folder+'/weights.h5')
