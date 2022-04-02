@@ -180,7 +180,7 @@ def FCN_(no_inputs, no_outputs, no_layers, no_nodes,
         
     return Model(inputs, outputs)
     
-def ResNeXtDense(units=64, cardinality=32, group_depth=1,  list_depth=3, blocks=1, batch_norm=False):
+def ResNeXtDense(no_outputs=9, units=64, cardinality=32, group_depth=1,  list_depth=3, blocks=1, batch_norm=False):
     '''
     Basic ResNeXt model except with Dense layers instead of convolutional layers. 
     All Dense layers have the same number of neurons and all groups share the same depth.
@@ -191,7 +191,6 @@ def ResNeXtDense(units=64, cardinality=32, group_depth=1,  list_depth=3, blocks=
     blocks: number of ResNeXt blocks.
     batch_norm: If true adds a batch_norm layer after the concatenation.    
     '''
-    no_outputs = 9
     no_inputs = 162
 
     inputs = Input(shape=(no_inputs,), dtype='float32')
@@ -210,8 +209,7 @@ def ResNeXtDense(units=64, cardinality=32, group_depth=1,  list_depth=3, blocks=
     model._name = 'ResNeXtDense'
     return model
 
-def ResNeXtHybrid(units, group_depth = 1, blocks = 1, batch_norm=True, skip_fn='relu'):
-    
+def ResNeXtHybrid(units, group_depth = 1, blocks = 1, skip_fn='relu', no_outputs = 9,  batch_list = [False, 0.99, 0.001, True, True]):
     '''        
     Difference to ResNeXtDense is all groups have a skip and
     can choose the depth of each group separately and the 
@@ -226,17 +224,20 @@ def ResNeXtHybrid(units, group_depth = 1, blocks = 1, batch_norm=True, skip_fn='
     group_depth: (int) of number 'GroupDenseHybrid' blocks.
     
     blocks: (int) of number 'ResNeXtHybrid' blocks. 
-    '''
     
-    no_outputs = 9
+    batch_list: list of  [(bool) to use batch norm or not, (float) momentum=0.99,
+    (float) epsilon=0.001, (bool) center=True, (bool) scale=True]
+    
+    '''
     no_inputs = 162
+    
     inputs = Input(shape=(no_inputs,), dtype='float32')
 
     x = ResNeXt_hybrid_block(units=units,
                       group_depth=group_depth,
                       repeat_num=blocks,
-                      batch_norm=batch_norm,
-                      skip_fn=skip_fn)(inputs)
+                      skip_fn=skip_fn,
+                      batch_list=batch_list)(inputs)
 
     outputs = Dense(no_outputs, activation='linear')(x)      
     model = Model(inputs, outputs)

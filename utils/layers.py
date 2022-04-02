@@ -216,16 +216,17 @@ class GroupDenseHybrid(Layer):
     def __init__(self, 
                  units, # Needs matrix as input
                  groups, # Integer
+                 list_depth,
                  skip_fn = 'relu'): # Vector of length = groups
         super(GroupDenseHybrid, self).__init__()
 
         self.units = units # Matrix
         self.groups = groups # Int
-        self.skip_fn = skip_fn
-        
-        self.list_dense = [ListDenseHybrid(units[:,i]) for i in range(groups)]
+        self.skip_fn = skip_fn        
+        self.list_dense = [ListDenseHybrid(units[0:list_depth[i],i]) for i in range(groups)]
         self.activation_functions = {'relu': relu, 'elu': elu, 'gelu':  gelu, 'softsign': softsign,
                                     'softmax': softmax, 'log_softmax': log_softmax, 'linear': linear}
+     
 
     def call(self, inputs):
         feature_map_list = []
@@ -248,7 +249,7 @@ class ResNeXtHybrid(Layer):
     def __init__(self,
                  units,
                  group_depth,
-                 batch_norm = False,
+                 batch_list,
                  skip_fn = 'relu'):
         super(ResNeXtHybrid, self).__init__()
         
@@ -285,23 +286,30 @@ class ResNeXtHybrid(Layer):
                     
         list_depth = np.array(list_depth)
         
+        print(np.matrix(units))
+        print(list_depth)
+        
         # Get number of neurons for last layer in deepest group.
         # Necessary because it needs to know the shape of the concat of 
         # all the groups.
         group_index_max = min(range(len(list_depth)), key=list_depth.__getitem__) 
         
         self.group_depth = group_depth
-        self.batch_norm = batch_norm
+        self.batch_norm = batch_list[0]
         self.groups = len(list_depth)
         
-        self.bn = BatchNormalization()
+        self.bn = BatchNormalization(momentum=batch_list[1],
+                                    epsilon=batch_list[2],
+                                    center=batch_list[3],
+                                    scale=batch_list[4])
         
         self.dense = Dense(self.units[list_depth[group_index_max]-1,group_index_max] * self.groups, activation='relu')  
         
         # All layers used in 'call' method needs to be initialized in __init__.
         self.group_dense_list = [GroupDenseHybrid(units=self.units,
                                                   groups=self.groups,
-                                                  skip_fn=skip_fn) for i in range(group_depth)]     
+                                                  list_depth=list_depth,
+                                                  skip_fn=skip_fn) for _ in range(group_depth)]     
                     
     def call(self, inputs, training=None, **kwargs):
         x0 = self.dense(inputs)
@@ -315,16 +323,16 @@ class ResNeXtHybrid(Layer):
         output = relu(add([x, x0]))
         return output
     
-def ResNeXt_hybrid_block(units, group_depth, repeat_num, batch_norm, skip_fn):
+def ResNeXt_hybrid_block(units, group_depth, repeat_num, skip_fn, batch_list):
     block = Sequential()
     block.add(ResNeXtHybrid(units=units,
-                     group_depth=group_depth,
-                     batch_norm=batch_norm,
-                     skip_fn=skip_fn))
+                            group_depth=group_depth,
+                            batch_list=batch_list,
+                            skip_fn=skip_fn))
     for _ in range(1, repeat_num):
         block.add(ResNeXtHybrid(units=units,
-                         group_depth=group_depth,
-                         batch_norm=batch_norm,
-                         skip_fn=skip_fn))
+                                group_depth=group_depth,
+                                batch_list=batch_list,
+                                skip_fn=skip_fn))
 
     return block
