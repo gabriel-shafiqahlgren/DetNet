@@ -26,7 +26,7 @@ def absolute_error(px, py, pz, px_, py_, pz_):
     Pretty much the same as square_error with an additional square root
     
     """
-    return sqrt(maximum(squared_error(px, py, pz, px_, py_, pz_), 1e-9))
+    return sqrt(maximum(squared_error(px, py, pz, px_, py_, pz_), 1e-20))
 
 
 ## OBS. NOT USING KERAS STUFF...

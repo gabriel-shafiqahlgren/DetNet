@@ -181,6 +181,16 @@ def FCN_(no_inputs, no_outputs, no_layers, no_nodes,
     return Model(inputs, outputs)
     
 def ResNeXtDense(units=64, cardinality=32, group_depth=1,  list_depth=3, blocks=1, batch_norm=False):
+    '''
+    Basic ResNeXt model except with Dense layers instead of convolutional layers. 
+    All Dense layers have the same number of neurons and all groups share the same depth.
+    
+    units: number of neurons for every dense layer.
+    cardinality: number of groups / paths.
+    group_depth: number of GroupDense blocks, normally 1 for a ResNeXt model.
+    blocks: number of ResNeXt blocks.
+    batch_norm: If true adds a batch_norm layer after the concatenation.    
+    '''
     no_outputs = 9
     no_inputs = 162
 
@@ -200,32 +210,38 @@ def ResNeXtDense(units=64, cardinality=32, group_depth=1,  list_depth=3, blocks=
     model._name = 'ResNeXtDense'
     return model
 
-def ResNeXtHybrid(units, group_depth = 1, blocks = 1, batch_norm=True):
+def ResNeXtHybrid(units, group_depth = 1, blocks = 1, batch_norm=True, skip_fn='relu'):
+    
+    '''        
+    Difference to ResNeXtDense is all groups have a skip and
+    can choose the depth of each group separately and the 
+    width of each Dense layer almost entirely separately.
+    
+    units: a matrix, with each column is a group of layers,
+    assuming all groups have the same amount of neurons in the last layer,
+    if not it wont be able to concatenate and will crash.
+    
+    all skip functions: relu, softsign, softmax, gelu, log_softmax, elu
+    
+    group_depth: (int) of number 'GroupDenseHybrid' blocks.
+    
+    blocks: (int) of number 'ResNeXtHybrid' blocks. 
+    '''
+    
     no_outputs = 9
     no_inputs = 162
-    # units: a matrix, with each column is a group of layers,
-    # assuming first column is one of the deepest and all groups have the same
-    # amount of neurons in the last layer, if not it wont be able to concat.
-    
-    # Example for units: units = 500 * np.array([[1,1,1],[1,1,0],[1,0,0]])
-    # The groups/paths are the columns of the 'units' matrix.
-    # Doesnt have to a square matrix. Cant have a zero in middle of a group, will cause problems.
-    
-    # 'group_depth' is the number of GroupDense layers.
-    # 'blocks' is the number of ResNeXt_hybrid_block.
-    
     inputs = Input(shape=(no_inputs,), dtype='float32')
 
     x = ResNeXt_hybrid_block(units=units,
                       group_depth=group_depth,
                       repeat_num=blocks,
-                      batch_norm=batch_norm)(inputs)
+                      batch_norm=batch_norm,
+                      skip_fn=skip_fn)(inputs)
 
     outputs = Dense(no_outputs, activation='linear')(x)      
     model = Model(inputs, outputs)
     model._name = 'ResNeXtHybrid'
     return model
-
 
 ##### Convolutional networks #####
 
