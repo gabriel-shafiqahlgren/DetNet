@@ -209,7 +209,7 @@ def ResNeXtDense(no_outputs=9, units=64, cardinality=32, group_depth=1,  list_de
     model._name = 'ResNeXtDense'
     return model
 
-def ResNeXtHybrid(units, group_depth = 1, blocks = 1, skip_fn='relu', no_outputs = 9,  batch_list = [False, 0.99, 0.001, True, True]):
+def ResNeXtHybrid(units, group_depth = 1, blocks = 1, skip_fn='relu', no_outputs = 9,  norm_layer = 'layer_norm'):
     '''        
     Difference to ResNeXtDense is all groups have a skip and
     can choose the depth of each group separately and the 
@@ -237,7 +237,7 @@ def ResNeXtHybrid(units, group_depth = 1, blocks = 1, skip_fn='relu', no_outputs
                       group_depth=group_depth,
                       repeat_num=blocks,
                       skip_fn=skip_fn,
-                      batch_list=batch_list)(inputs)
+                      norm_layer=norm_layer)(inputs)
 
     outputs = Dense(no_outputs, activation='linear')(x)      
     model = Model(inputs, outputs)

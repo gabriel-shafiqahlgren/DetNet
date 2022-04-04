@@ -377,24 +377,23 @@ def plot_momentum_error_dist(y, y_, bins=100, aspect=1.5):
         
         
 #scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
-def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
+def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=True):
     start_time = time.time()
     
     # Equation system for left, bottom bar of graph. 
     # a * min_eval_ + b =  0
-    # a * epsilon + b = depth
+    # a * (epsilon + min_eval_) + b = depth
     # a,b unknown.
 
     # 'epsilon': The threshold of energies to look into. [0 , epsilon] interval of energies is represented in the bar.
     # 'depth': Width of the bar essentially. Around [1 , 2] is good.
-    
-    epsilon = 0.06
+
     depth = -1.35
 
-    min_eval_ = min(y_[::,0::3].flatten())
+    min_eval_ = min(y_[::,0::3].flatten()[np.nonzero(y_[::,0::3].flatten())])
     min_pred = min(y[::,0::3].flatten())
 
-    A1 = np.array([[min_eval_,1],[epsilon,1]])
+    A1 = np.array([[min_eval_,1],[epsilon + min_eval_,1]])
     A2 = np.array([[min_pred,1],[epsilon,1]])
     v = np.array([0, depth])
 
@@ -407,9 +406,9 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
 
     E_pred = y[::,0::3].flatten()
     E_eval = y_[::,0::3].flatten()
-    
-    Y_leftbar = np.array([E_pred[i] for i, e in enumerate(E_eval) if e < epsilon])
-    X_leftbar = np.array([a1*E_eval[i]+b1 for i, e in enumerate(E_eval) if e < epsilon])
+
+    Y_leftbar = np.array([E_pred[i] for i, e in enumerate(E_eval) if e < min_eval_ +  epsilon and e != 0.])
+    X_leftbar = np.array([a1*E_eval[i]+b1 for i, e in enumerate(E_eval) if e < min_eval_ + epsilon and e != 0.])
     Y_botbar = np.array([a2*E_pred[i]+b2 for i, e in enumerate(E_pred) if e < epsilon])
     X_botbar = np.array([E_eval[i] for i, e in enumerate(E_pred) if e < epsilon])
 
@@ -421,7 +420,7 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
 
               'predicted_phi': np.mod(y[::,2::3], 2*np.pi).flatten(),
               'correct_phi': y_[::,2::3].flatten()}
-    
+
     fig, axs = plt.subplots(1,3, figsize=(20, 8))
     colormap = truncate_colormap(plt.cm.afmhot, 0.0, 1.0)
     img = []
@@ -493,10 +492,9 @@ def plot_predictions_bar(y, y_, bins=500, show_detector_angles=True):
     plt.yticks(np.linspace(0, 2*np.pi, 3),['0','$\pi$','$2\pi$'])
 
     fig.tight_layout()
-    
+
     print("Plotting time> --- %s seconds ---" % (time.time() - start_time))
     return fig, events
-
 
 #scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
 def plot_predictions_bar_addback(y, y_, bins=500, show_detector_angles=True):

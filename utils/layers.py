@@ -249,7 +249,7 @@ class ResNeXtHybrid(Layer):
     def __init__(self,
                  units,
                  group_depth,
-                 batch_list,
+                 norm_layer,
                  skip_fn = 'relu'):
         super(ResNeXtHybrid, self).__init__()
         
@@ -295,13 +295,25 @@ class ResNeXtHybrid(Layer):
         group_index_max = min(range(len(list_depth)), key=list_depth.__getitem__) 
         
         self.group_depth = group_depth
-        self.batch_norm = batch_list[0]
-        self.groups = len(list_depth)
+        self.groups = len(list_depth)  
         
-        self.bn = BatchNormalization(momentum=batch_list[1],
-                                    epsilon=batch_list[2],
-                                    center=batch_list[3],
-                                    scale=batch_list[4])
+        self.norm = False
+        
+        if 'batch_norm' in norm_layer:    
+            self.norm = True
+            self.normalization_layer = BatchNormalization()
+            print('Batch norm.')
+            
+        elif 'layer_norm' in norm_layer:
+            self.norm = True
+            self.normalization_layer = Normalization()
+            print('Layer norm.')
+            
+        elif 'weight_norm' in norm_layer:
+            self.norm = True
+            self.normalization_layer = WeightNormalization(Dense( units[list_depth[0]-1 , 0] * self.groups))
+            print('Weight norm.')
+                  
         
         self.dense = Dense(self.units[list_depth[group_index_max]-1,group_index_max] * self.groups, activation='relu')  
         
@@ -313,26 +325,27 @@ class ResNeXtHybrid(Layer):
                     
     def call(self, inputs, training=None, **kwargs):
         x0 = self.dense(inputs)
+        
         x = self.group_dense_list[0](x0)
         for i in range(1,self.group_depth):
             x = self.group_dense_list[i](x)
-            
-        if self.batch_norm:            
-            x = self.bn(x)    
+
+        if self.norm:            
+            x = self.normalization_layer(x)    
             
         output = relu(add([x, x0]))
         return output
     
-def ResNeXt_hybrid_block(units, group_depth, repeat_num, skip_fn, batch_list):
+def ResNeXt_hybrid_block(units, group_depth, repeat_num, skip_fn, norm_layer):
     block = Sequential()
     block.add(ResNeXtHybrid(units=units,
                             group_depth=group_depth,
-                            batch_list=batch_list,
+                            norm_layer=norm_layer,
                             skip_fn=skip_fn))
     for _ in range(1, repeat_num):
         block.add(ResNeXtHybrid(units=units,
                                 group_depth=group_depth,
-                                batch_list=batch_list,
+                                norm_layer=norm_layer,
                                 skip_fn=skip_fn))
 
     return block
