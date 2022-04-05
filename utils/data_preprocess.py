@@ -49,22 +49,19 @@ def insert_empty_events(data, labels, n):
         raise ValueError('Too many zeros to add...')
     
     print('inserting {} zero events...'.format(n))
+    
     new_data = data
     new_labels = labels
-    no_insertions = n
-    
+
     empty_data = np.zeros(data[0].shape)
     empty_label = np.zeros(labels[0].shape)
-    
-    while no_insertions > len(new_labels):
-        insert_indices = permutation(len(new_labels))
-        new_data = np.insert(new_data, insert_indices, empty_data, axis=0)
-        new_labels = np.insert(new_labels, insert_indices, empty_label, axis=0)
-        no_insertions -= len(insert_indices)
-    
-    insert_indices = permutation(no_insertions)
-    new_data = np.insert(new_data, insert_indices, empty_data, axis=0)
-    new_labels = np.insert(new_labels, insert_indices, empty_label, axis=0)
+
+    insert_indices = permutation(len(new_labels)) # Get random indices for insertion
+
+    for i in range(n):
+        new_data = np.insert(new_data, insert_indices[i], empty_data, axis=0)
+        new_labels = np.insert(new_labels, insert_indices[i], empty_label, axis=0)
+
     return new_data, new_labels
     
 
