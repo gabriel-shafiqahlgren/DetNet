@@ -27,8 +27,33 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
     labels = spherical_to_cartesian(data_set['energy_labels'])
     no_events = len(labels)
     
-    if add_zeros:
+    if add_zeros or 0. < portion_zeros < 1. and randomize:
+        if add_zeros:            
+            n=add_zeros
+            
+        elif 0. < portion_zeros < 1.:
+            n = int((no_events*portion_zeros)/(1-portion_zeros))  
+        
+        new_data = list(det_data)
+        new_labels = list(labels)
+
+        empty_data = np.zeros(det_data[0].shape)
+        empty_label = np.zeros(labels[0].shape)
+        
+        for _ in range(n):
+            new_data.append(empty_data)
+            new_labels.append(empty_label)
+        print('Inserting {} empty events.'.format(n))
+             
+        det_data, labels = randomize_data(new_data, new_labels)
+        
+    elif randomize:
+        det_data, labels = randomize_data(det_data, labels)
+        
+        
+    elif add_zeros:
         det_data, labels = insert_empty_events(det_data, labels, n=add_zeros)
+        
     elif 0. < portion_zeros < 1.:
         n = (no_events*portion_zeros)/(1-portion_zeros)
         det_data, labels = insert_empty_events(det_data, labels, n=int(n))
@@ -36,18 +61,17 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
     if classification:
         labels = insert_classification_labels(labels, hinge)
     
-    if randomize:
-        print('Shuffling detector data and labels.')
-        combined = list(zip(det_data, labels))
-        random.shuffle(combined)
-        det_data[:], labels[:] = zip(*combined)
-        det_data = np.array(det_data)
-        labels = np.array(labels)
-    
     no_events = int(len(labels)*total_portion)
     print('Using {} events from {}'.format(no_events, npz_file))
     return det_data[:no_events], labels[:no_events]
 
+
+def randomize_data(data, labels):
+    print('Shuffling data.')
+    combined = list(zip(data, labels))
+    random.shuffle(combined)
+    data[:], labels[:] = zip(*combined)
+    return np.array(data), np.array(labels)
 
 def insert_empty_events(data, labels, n):
     """
