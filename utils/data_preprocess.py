@@ -5,12 +5,13 @@
 """
 import numpy as np
 from numpy.random import permutation
+import random
 from random import sample
 
 from .help_methods import spherical_to_cartesian
 
 
-def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., classification=False, hinge=False):
+def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=True, classification=False, hinge=False):
     """
     Reads a .npz-file from the address string: npz_file that contains simulation 
     data in spherical coordinates. I transforms to cartesian coordinates and
@@ -35,6 +36,12 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., classifica
     if classification:
         labels = insert_classification_labels(labels, hinge)
     
+    if randomize:
+        print('Shuffling detector data and labels.')
+        combined = list(zip(det_data, labels))
+        random.shuffle(combined)
+        det_data[:], labels[:] = zip(*combined)
+    
     no_events = int(len(labels)*total_portion)
     print('Using {} events from {}'.format(no_events, npz_file))
     return det_data[:no_events], labels[:no_events]
@@ -50,17 +57,16 @@ def insert_empty_events(data, labels, n):
     
     print('inserting {} zero events...'.format(n))
     
-    new_data = data
-    new_labels = labels
+    new_data = list(data)
+    new_labels = list(labels)
 
     empty_data = np.zeros(data[0].shape)
     empty_label = np.zeros(labels[0].shape)
 
-    insert_indices = permutation(len(new_labels)) # Get random indices for insertion
-
-    for i in range(n):
-        new_data = np.insert(new_data, insert_indices[i], empty_data, axis=0)
-        new_labels = np.insert(new_labels, insert_indices[i], empty_label, axis=0)
+    insert_indices = np.sort(permutation(len(new_labels))[:n]) # Get random indices for insertion
+    for i in insert_indices:
+        new_data.insert(i, empty_data)
+        new_labels.insert(i, empty_label)
 
     return new_data, new_labels
     
