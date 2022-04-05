@@ -41,6 +41,8 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
         combined = list(zip(det_data, labels))
         random.shuffle(combined)
         det_data[:], labels[:] = zip(*combined)
+        det_data = np.array(det_data)
+        labels = np.array(labels)
     
     no_events = int(len(labels)*total_portion)
     print('Using {} events from {}'.format(no_events, npz_file))
