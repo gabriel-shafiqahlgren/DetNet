@@ -479,3 +479,15 @@ def save_summary(folder, model):
     with open(folder + '/modelsummary.txt', 'w') as f:
         with redirect_stdout(f):
             model.summary()
+
+def eval_empty_events(model, loss):    
+    no_inputs = model._nested_inputs[0].shape[0]
+    no_outputs = model._nested_outputs[0].shape[0]
+
+    zero_eval = np.zeros((30,no_inputs))
+    zero_eval_ = np.zeros((30,no_outputs))
+    zero_predictions = model.predict(zero_eval)
+    # return the combination that minimized the loss function (out of max_mult! possible combinations)
+    zero_predictions, zero_eval_ = get_permutation_match(zero_predictions, zero_eval_, loss, int(no_outputs/3))
+    return get_measurement_of_performance(zero_predictions, zero_eval_, spherical=False)
+            

@@ -364,10 +364,12 @@ class Arrow3D(FancyArrowPatch):
 
 # Plots a distribution of the momentum errors.
 # Returns the figure.
-# Assumes y, y_ is spherical.
-def plot_momentum_error_dist(y, y_, bins=100, aspect=1.5):    
-    start_time = time.time()
-    P_error = get_momentum_error_dist(y, y_, True)
+def plot_momentum_error_dist(y, y_, spherical=True, bins=100, aspect=1.5):   
+    if spherical:
+        P_error = get_momentum_error_dist(y, y_, spherical = True)        
+    else:
+        P_error = get_momentum_error_dist(y, y_, spherical = False)
+        
     set_style('white')
     set_context("paper", font_scale = 2)
     fig = plt.figure(figsize=(12, 9))
