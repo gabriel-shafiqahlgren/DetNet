@@ -1,88 +1,90 @@
 import os
-from datetime import timedelta
-from time import time
+from datetime import timedelta, datetime
+from time import gmtime, strftime, time
+from numpy import mean, std, ones, zeros, array, ceil, linspace
 import numpy as np
-
-from tensorflow.keras.optimizers.experimental import Adam
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from tensorflow.train import latest_checkpoint
-
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping
 from loss_function.loss import LossFunction
-
-from utils.plot_methods import plot_predictions_bar
-from utils.plot_methods import plot_loss
-from utils.plot_methods import plot_momentum_error_dist
-
-from utils.data_preprocess import load_data
-from utils.data_preprocess import get_eval_data
-
-from utils.help_methods import save_figs
-from utils.help_methods import save_summary
-from utils.help_methods import save_dictionary_csv
-from utils.help_methods import check_folder
-from utils.help_methods import get_measurement_of_performance
-from utils.help_methods import get_permutation_match
+from utils.data_preprocess import load_data, get_eval_data
+from utils.models import ResNeXtHybrid
+from utils.plot_methods import plot_momentum_error_dist, plot_predictions_bar, plot_loss, plot_predictions
+from utils.help_methods import get_mem_use, get_gpu_memory
+from utils.help_methods import save_dictionary_csv, save_summary, save_figs
+from utils.help_methods import get_permutation_match, get_measurement_of_performance
 from utils.help_methods import cartesian_to_spherical
-
-from utils.models import ResNeXtDense
+from utils.help_methods import check_folder
 
 ## ----------- Load and prepare data for training/evaluation -------------------
+NPZ_PATH = '/cephyr/NOBACKUP/groups/snic2022-5-74/DetNet/data'
+NPZ_DATAFILE = os.path.join(NPZ_PATH, '3maxmul_0.1_10MeV_3000000_clus300.npz')
+NPZ_DATAFILE_EVAL = os.path.join(NPZ_PATH, '3maxmul_0.1_10MeV_500000_clus300.npz')
 
-NPZ_DATAFILE = os.path.join('../data', 'XB_mixed_e6_m3_clus50.npz')
+def units_matrix(l, w, n, kappa):
+    # kappa: the neurons of a column is some inital value * kappa to the power of the column.
+    # if kappa = 1 and alpha = 1: uniform network.
+    alpha = 1 # alpha < 1 the decreases the width with increasing depth for all paths.
+    triangle = lambda i, a, b: [ ceil(linspace(a, b, i)[j]) for j in range(i)]    
+    matrix_map = [triangle(l[k], ceil(n * kappa**k), ceil(n * kappa**(w-1)) * alpha ) for k in range(w)] # Nested list of neurons.
+    units = zeros((l[0],w))
+    for i in range(w):
+        for j in range(l[i]):
+            units[j,i] = matrix_map[i][j]
+            
+    # for i in range(1,w):   # Sets the last layer of all paths to be equal to the last layer of the first path.
+    #     units[l[i]-1,i] = units[l[0]-1,0]
+        
+    for i in range(w):  # Seths the last layers of all paths to some value.    
+        units[l[i]-1,i] = 650
+        
+    return units  
 
-TOTAL_PORTION = 1      #portion of file data to be used, (0,1]
-EVAL_PORTION = 0.2      #portion of total data for final evalutation (0,1)
-VALIDATION_SPLIT = 0.3  #portion of training data for epoch validation
+path_d = [6,4] # Depth for each path.
 
-#load simulation data. OBS. labels need to be ordered in decreasing energy!
-data, labels = load_data(NPZ_DATAFILE, TOTAL_PORTION)
+units = units_matrix(path_d, len(path_d), 1200, 1)
 
-#detach subset for final evaluation, train and eval are inputs, train_ and eval_ are labels
-train, train_, eval, eval_ = get_eval_data(data, labels, eval_portion=EVAL_PORTION)
-max_mult = int(len(train_[0])/3)
+TOTAL_PORTION = 1  # portion of file data to be used, (0,1]
+VALIDATION_SPLIT = 0.1  # portion of training data for epoch validation
+
+NO_EPOCHS = 300  # no. times to go through training data
+BATCH_SIZE = 2**12  # the training batch size
+LEARNING_RATE = 5e-4  # learning rate/step size
+
+group_depth = 1 # Number of GroupDenseHybrid blocks
+blocks = 1 # Number of ResNeXtHybrid blocks
+
+beta_1 = 0.9 # def 0.9
+beta_2 = 0.999 # def 0.999
+epsilon = 1e-8 
+patience = 25
+
+regression_loss = 'absolute' # 'squared', 'absolute'
+norm_layer = 'weight_norm' # 'weight_norm', 'batch_norm' or 'layer_norm'
+training_folder = 'Training_ResNeXt'
+
+dMetrics = {'Loss': [], 'P Std': [], 'P Mean': [], 'Training t': [], 'Epochs': [],
+                                  'Memory use': [], 'GPU memory use': [], 'Iterations': 0}
+
+## Here you can change name of folder, subfolder    
+training_folder = 'Training_ResNeXt'
+get_folder = check_folder(training_folder + '/iterations')
+
+train, train_ = load_data(NPZ_DATAFILE, total_portion=TOTAL_PORTION, portion_zeros=0.05)
+eval, eval_ = load_data(NPZ_DATAFILE_EVAL, total_portion=1, portion_zeros=0.05)
 
 ## ---------------------- Build the neural network -----------------------------
 # initiate the network structure
-
-units = 64
-cardinality = 4
-LEARNING_RATE = 0.5e-3
-NO_EPOCHS = 1000         # no. times to go through training data
-BATCH_SIZE = 2**11      # the training batch size
-patience = 7
-# strategy = MirroredStrategy()
-# with strategy.scope(): ## for multi gpu single node use
-model = ResNeXtDense(units=units,cardinality=cardinality)
-
+model = ResNeXtHybrid(units=units, group_depth=group_depth, blocks=blocks, norm_layer=norm_layer)
 
 # select mean squared error as loss function
-#loss = LossFunction(max_mult, regression_loss='squared')
-
-#compile the network
-    # learning rate/step size
-loss = LossFunction(max_mult, regression_loss='squared')
-optimizer = Adam(
-    learning_rate=LEARNING_RATE, beta_1=0.99, beta_2=0.999, epsilon=1e-07, amsgrad=False,
-    clipnorm=None, clipvalue=None, global_clipnorm=None, use_ema=False,
-    ema_momentum=0.99, ema_overwrite_frequency=None, jit_compile=False,
-    name='Adam')
+max_mult = int(len(train_[0])/3)
+loss = LossFunction(max_mult, regression_loss=regression_loss)
+# compile the network
+optimizer = Adam(learning_rate=LEARNING_RATE, beta_1=beta_1, beta_2=beta_2, epsilon=epsilon)
 model.compile(optimizer=optimizer, loss=loss.get(), metrics=['accuracy'])
 
 ## ----------------- Train the neural network and plot results -----------------
-get_folder = check_folder('Training_ResNeXt/training')    
-
-my_ckpts = get_folder + "/cp-{epoch:04d}.ckpt"
-checkpoint_callback = ModelCheckpoint(
-    filepath=my_ckpts,
-    monitor='val_loss',
-    verbose=1,
-    save_best_only=True,
-    save_weights_only=True,
-    mode='auto',
-    save_freq='epoch',
-    options=None
-)
-
+# train the network with training data
 #train the network with training data
 
 start_time = time()
@@ -90,48 +92,54 @@ training = model.fit(train, train_,
                      epochs=NO_EPOCHS,
                      batch_size=BATCH_SIZE,
                      validation_split=VALIDATION_SPLIT,
-                     callbacks=[EarlyStopping(monitor='val_loss', patience=patience),
-                                checkpoint_callback])
+                     callbacks=[EarlyStopping(monitor='val_loss', patience=patience)])
 ttime = time() - start_time
 
-# Load the best weights
-latest = latest_checkpoint(get_folder)
-model.load_weights(latest)
-
-# Remove all but latest check point
-
-index_min = min(range(len(training.history['val_loss'])), key=training.history['val_loss'].__getitem__)
-
-for epoch in range(index_min):
-    if os.path.isfile(get_folder + "cp-{epoch:04d}.ckpt.index".format(epoch=epoch+1)):        
-        os.remove(get_folder + "cp-{epoch:04d}.ckpt.index".format(epoch=epoch+1))
-        os.remove(get_folder + "cp-{epoch:04d}.ckpt.data-00000-of-00001".format(epoch=epoch+1))
-
-# Plot learning curve
 learning_curve = plot_loss(training)
 
 # get predictions on evaluation data
 predictions = model.predict(eval)
 
 # return the combination that minimized the loss function (out of max_mult! possible combinations)
-
 predictions, eval_ = get_permutation_match(predictions, eval_, loss, max_mult)
 
+# plot the "lasersvärd" in spherical coordinates (to compare with previous year)
 predictions = cartesian_to_spherical(predictions, error=True)
 eval_ = cartesian_to_spherical(eval_, error=True)
-figure, rec_events = plot_predictions_bar(predictions, eval_, show_detector_angles=True)
-fig_med = plot_momentum_error_dist(predictions, eval_)
-
+rec_fig, rec_events = plot_predictions_bar(predictions, eval_, epsilon=0.05 , show_detector_angles=True)
 meas_perf = get_measurement_of_performance(predictions, eval_, spherical=True)
-nn_info = {'Loss': training.history['loss'][index_min], 'P mean': meas_perf['momentum mean'], 'P std': meas_perf['momentum std'],
-        'Batch size': BATCH_SIZE, 'Units': units, 'Cardinality': cardinality, 'Learning rate': '{:.2e}'.format(LEARNING_RATE),
-        'Epochs': [training.epoch[-1] + 1, NO_EPOCHS], 'Network': model._name, 
-        'Optimizer': [optimizer._name, float(optimizer.decay), float(optimizer.beta_1),float(optimizer.beta_2)],
-        'Training time': timedelta(seconds=round(ttime)), 'Data file': NPZ_DATAFILE,
-        'Number of events': len(data[:,0])}
 
-# save figures, parameters etc
-save_figs(get_folder + '/model',[figure, learning_curve, fig_med], model)
-save_dictionary_csv(get_folder + '/model/info.csv', nn_info )
-save_summary(get_folder + '/model', model)
-model.save(get_folder + '/model/saved_model')
+print('P mean', meas_perf['momentum mean'])
+
+dMetrics['Training t'].append(ttime)
+dMetrics['P Mean'].append(meas_perf['momentum mean'])
+dMetrics['P Std'].append(meas_perf['momentum std'])
+dMetrics['Loss'].append(training.history['loss'][-1])
+dMetrics['Memory use'].append(round(get_mem_use(), 4))
+dMetrics['GPU memory use'].append(round(get_gpu_memory(), 4))
+dMetrics['Epochs'].append(training.epoch[-1] + 1)           
+dMetrics['Iterations'] +=1
+
+current_time = strftime("%Y-%m-%d %H:%M:%S", gmtime()).replace(" ", "-").replace(':',';')
+Direc = get_folder + current_time
+
+# mom_fig = plot_momentum_error_dist(predictions, eval_)
+
+path_to_folder = save_figs(Direc, figs=[learning_curve, rec_fig], model=model)
+# path_to_folder = save_figs(Direc, figs=[], model=model)
+
+dct_Data = {'Loss': training.history['loss'][-1], 'P mean': meas_perf['momentum mean'],
+            'P std': meas_perf['momentum std'] ,'Batch size': BATCH_SIZE,'Units': units,
+            'Groups': units.shape[-1], 'Learning rate': '{:.2e}'.format(LEARNING_RATE),
+            'Epochs': [training.epoch[-1] + 1, NO_EPOCHS], 'Network': model._name, 
+            'Optimizer': [optimizer._name,float(optimizer.beta_1),
+                          float(optimizer.beta_2)],'Regression loss': regression_loss,
+            'Training time': timedelta(seconds=round(ttime)), 'Data file': NPZ_DATAFILE_EVAL,
+            'Number of events': train.shape[0], 'Memory GB': round(get_mem_use(), 4),
+            'VRAM GB': round(get_gpu_memory(), 4) }
+
+save_dictionary_csv(os.path.join(path_to_folder, 'data.csv'), dct_Data)
+save_summary(get_folder, model)
+# Saves MME and path to folder in a general csv file for fast comparison amongst runs.
+save_dictionary_csv('./' + training_folder +  '/data.csv', {'MME': meas_perf['momentum mean'], 
+                                                            'Loss': training.history['loss'][-1], 'Folder': get_folder })

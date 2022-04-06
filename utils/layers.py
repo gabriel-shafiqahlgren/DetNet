@@ -10,7 +10,9 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import add
 from tensorflow_addons.layers import WeightNormalization
-from tensorflow.keras.layers import BatchNormalization, Normalization
+from tensorflow.keras.layers import BatchNormalization
+from keras.layers import Normalization
+
 from tensorflow.keras.layers import Activation
 from tensorflow.keras import activations
 from tensorflow.keras import Sequential

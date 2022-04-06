@@ -25,9 +25,9 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
     data_set = np.load(npz_file)
     det_data = data_set['detector_data']
     labels = spherical_to_cartesian(data_set['energy_labels'])
-    no_events = len(labels)
+    no_events = len(labels)    
     
-    if add_zeros or 0. < portion_zeros < 1. and randomize:
+    if add_zeros and randomize or 0. < portion_zeros < 1. and randomize:
         if add_zeros:            
             n=add_zeros
             
@@ -40,16 +40,15 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
         empty_data = np.zeros(det_data[0].shape)
         empty_label = np.zeros(labels[0].shape)
         
+        print('Inserting {} empty events.'.format(n))
         for _ in range(n):
             new_data.append(empty_data)
             new_labels.append(empty_label)
-        print('Inserting {} empty events.'.format(n))
              
         det_data, labels = randomize_data(new_data, new_labels)
         
     elif randomize:
-        det_data, labels = randomize_data(det_data, labels)
-        
+        det_data, labels = randomize_data(det_data, labels) 
         
     elif add_zeros:
         det_data, labels = insert_empty_events(det_data, labels, n=add_zeros)
@@ -67,11 +66,13 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
 
 
 def randomize_data(data, labels):
+    data, labels = list(data), list(labels) # Needs to be lists of arrays, otherwise will shuffle in wrong axis.
     print('Shuffling data.')
     combined = list(zip(data, labels))
     random.shuffle(combined)
     data[:], labels[:] = zip(*combined)
     return np.array(data), np.array(labels)
+
 
 def insert_empty_events(data, labels, n):
     """
@@ -115,8 +116,8 @@ def insert_classification_labels(labels, hinge):
     
     max_mult = int(len(labels[0])/3)
     return np.reshape(np.column_stack((b_, px_, py_, pz_)), (-1, 4*max_mult))
+   
     
- 
 def get_eval_data(data, labels, eval_portion=0.1):
     """
     Seperates into data and labels set into one for training/validiation and
@@ -145,8 +146,3 @@ def sort_data(old_npz, new_npz):
         for j in range(max_mult):
             sorted_labels[i,3*j:3*(j+1)] = labels[i,3*sort_indices[i,j]:3*(sort_indices[i,j]+1)]
     np.savez(new_npz, detector_data=data_set['detector_data'], energy_labels=sorted_labels)
-
-
-    
-    
-    
