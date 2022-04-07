@@ -396,9 +396,9 @@ def save(folder, figure, learning_curve, model):
         if n==20: 
             raise ValueError('change name!')
     folder = folder+'/'
-    figure.savefig(folder + 'event_reconstruction.png', format='png')
+    figure.savefig(folder + 'event_reconstruction.jpg', format='jpg')
     # figure.savefig(folder + 'event_reconstruction.eps', format='eps')
-    learning_curve.savefig(folder + 'training_curve.png', format='png')
+    learning_curve.savefig(folder + 'training_curve.jpg', format='jpg')
     model.save_weights(folder + 'weights.h5')
     
     
@@ -420,7 +420,7 @@ def save_figs(folder, figs, model):
     folder = folder+'/'
     i = 0
     for figures in figs:
-        figures.savefig(folder +'fig' + str(i) +'.png', format='png')
+        figures.savefig(folder +'fig' + str(i) +'.jpg', format='jpg')
         i += 1
         
     if model is not None:

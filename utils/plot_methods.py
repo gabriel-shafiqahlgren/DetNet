@@ -383,36 +383,42 @@ def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=Tru
     start_time = time.time()
     
     # Equation system for left, bottom bar of graph. 
-    # a * min_eval_ + b =  0
-    # a * (epsilon + min_eval_) + b = depth
-    # a,b unknown.
+    # a1 * min_eval_ + b1 =  -min_eval_
+    # a1 * (epsilon + min_eval_) + b1 = depth
+    # a1,b1 unknown.
+    
+    # a2 * min_pred + b2 =  -min_pred
+    # a2 * (epsilon + min_pred) + b2 = depth
+    # a2,b2 unknown.
 
-    # 'epsilon': The threshold of energies to look into. [0 , epsilon] interval of energies is represented in the bar.
-    # 'depth': Width of the bar essentially. Around [1 , 2] is good.
+    # 'epsilon': The threshold of energies to look into. [min value , min_value + epsilon] interval of energies is represented in the bar.
+    # 'depth': Width of the bar essentially. Around [-1 , -2] is good.
 
     depth = -1.35
 
-    min_eval_ = min(y_[::,0::3].flatten()[np.nonzero(y_[::,0::3].flatten())])
-    min_pred = min(y[::,0::3].flatten())
+    min_eval_ = min(y_[::,0::3].flatten()[np.nonzero(y_[::,0::3].flatten())]) # get lowest value that != 0
+    min_pred = min(y[::,0::3].flatten()[np.nonzero(y[::,0::3].flatten())]) # get lowest value that != 0
 
     A1 = np.array([[min_eval_,1],[epsilon + min_eval_,1]])
-    A2 = np.array([[min_pred,1],[epsilon,1]])
-    v = np.array([0, depth])
+    A2 = np.array([[min_pred,1],[epsilon + min_pred ,1]])
 
-    a1,b1 = np.linalg.solve(A1,v)
-    a2,b2 = np.linalg.solve(A2,v)
+    v1 = np.array([-min_eval_, depth])
+    v2 = np.array([-min_pred, depth])
 
-    # Lowest value of 'correct_energy' is ~ 0.05
-    # For leftbar: Intension is to map the lowest 'x, y_, eval_' value to 0 and highest to 'depth'. 'y, predictions' values remain unchanged
-    # For bottombar: Maps the lowest value to 0 and the highest to 'depth'.
+    a1,b1 = np.linalg.solve(A1,v1)
+    a2,b2 = np.linalg.solve(A2,v2)
+
+    # For leftbar: Intension is to map the lowest 'y_, eval_' value to -of the lowest value != 0 and highest (epsilon + lowest value) 
+    # to 'depth'. 'y, predictions' values remain unchanged
+    # For bottombar: Maps the lowest value to -lowest value and the highest to 'depth'.
 
     E_pred = y[::,0::3].flatten()
     E_eval = y_[::,0::3].flatten()
 
     Y_leftbar = np.array([E_pred[i] for i, e in enumerate(E_eval) if e < min_eval_ +  epsilon and e != 0.])
     X_leftbar = np.array([a1*E_eval[i]+b1 for i, e in enumerate(E_eval) if e < min_eval_ + epsilon and e != 0.])
-    Y_botbar = np.array([a2*E_pred[i]+b2 for i, e in enumerate(E_pred) if e < epsilon])
-    X_botbar = np.array([E_eval[i] for i, e in enumerate(E_pred) if e < epsilon])
+    Y_botbar = np.array([a2*E_pred[i]+b2 for i, e in enumerate(E_pred) if e < min_pred + epsilon])
+    X_botbar = np.array([E_eval[i] for i, e in enumerate(E_pred) if e < min_pred + epsilon])
 
     events = {'predicted_energy': np.concatenate([y[::,0::3].flatten(), Y_leftbar, Y_botbar]),
               'correct_energy': np.concatenate([y_[::,0::3].flatten(), X_leftbar, X_botbar]), 
@@ -494,7 +500,6 @@ def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=Tru
     plt.yticks(np.linspace(0, 2*np.pi, 3),['0','$\pi$','$2\pi$'])
 
     fig.tight_layout()
-
     print("Plotting time> --- %s seconds ---" % (time.time() - start_time))
     return fig, events
 

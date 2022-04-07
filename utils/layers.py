@@ -188,7 +188,7 @@ def ResNeXt_block(units, groups, group_depth, list_depth, repeat_num, batch_norm
 
 class ListDenseHybrid(Layer):
     '''
-    A ResNet model with variable amount of layers and corresponding 
+    A ResNet model with variable amount of layers and variable
     number of neurons for every layer.
     
     '''
@@ -244,6 +244,10 @@ class ResNeXtHybrid(Layer):
     '''
     units: (matrix) Matrix of neurons 
     for each group, depth. Can't contain zeros in places that cause discontinuities in the paths!
+    example matrix: [ 100 100 ]
+                    [ 100 100 ]
+                    [ 50  50  ]
+    First path / group is the first column and so on. 
     group_depth: (int) number of 'GroupDenseHybrid'-layers to have directly after each other.
     batch_norm: (bool) Add batch norm layer if true.
     skip_fn: (string of a predef. function) Possible choices are relu, softsign, softmax, gelu, log_softmax, elu.
@@ -276,7 +280,7 @@ class ResNeXtHybrid(Layer):
         # Get depth of each group (amount of layers in that path / group).
         
         list_depth = []
-
+        
         for i in range(self.units.shape[0]):
             for j in range(self.units.shape[1]):
                 if self.units[j,i] == 0 and j == 0:
@@ -289,13 +293,13 @@ class ResNeXtHybrid(Layer):
                     
         list_depth = np.array(list_depth)
         
-        print(np.matrix(units))
-        print(list_depth)
+        for i in range(1,len(list_depth)):   # Sets the last layer of all paths to be equal to the last layer of the first path.
+            if self.units[list_depth[i]-1,i] != self.units[list_depth[0]-1,0]:
+                print('Matrix incompatible, making corrections...')
+                self.units[list_depth[i]-1,i] = self.units[list_depth[0]-1,0]
         
-        # Get number of neurons for last layer in deepest group.
-        # Necessary because it needs to know the shape of the concat of 
-        # all the groups.
-        group_index_max = min(range(len(list_depth)), key=list_depth.__getitem__) 
+        print(np.matrix(self.units))
+        print(list_depth)
         
         self.group_depth = group_depth
         self.groups = len(list_depth)  
@@ -303,22 +307,22 @@ class ResNeXtHybrid(Layer):
         self.norm = False
         
         if 'batch_norm' in norm_layer:    
-            self.norm = True
-            self.normalization_layer = BatchNormalization()
-            print('Batch norm.')
+            self.norm, self.normalization_layer = True, BatchNormalization()
+            print('Batch normalization.')
             
         elif 'layer_norm' in norm_layer:
-            self.norm = True
-            self.normalization_layer = Normalization()
-            print('Layer norm.')
+            self.norm, self.normalization_layer = True, Normalization()
+            print('Layer normalization.')
             
         elif 'weight_norm' in norm_layer:
-            self.norm = True
-            self.normalization_layer = WeightNormalization(Dense( units[list_depth[0]-1 , 0] * self.groups))
-            print('Weight norm.')
+            self.norm, self.normalization_layer = True, WeightNormalization(Dense(units[list_depth[0]-1,0] * self.groups))
+            print('Weight normalization.')
+        
+        else:
+            print('No normalization layer.')
                   
         
-        self.dense = Dense(self.units[list_depth[group_index_max]-1,group_index_max] * self.groups, activation='relu')  
+        self.dense = Dense(self.units[list_depth[0]-1,0] * self.groups, activation='relu')  
         
         # All layers used in 'call' method needs to be initialized in __init__.
         self.group_dense_list = [GroupDenseHybrid(units=self.units,
