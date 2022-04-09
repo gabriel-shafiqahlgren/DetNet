@@ -364,17 +364,20 @@ class Arrow3D(FancyArrowPatch):
 
 # Plots a distribution of the momentum errors.
 # Returns the figure.
-def plot_momentum_error_dist(y, y_, spherical=True, bins=100, aspect=1.5):   
+def plot_momentum_error_dist(y, y_, spherical=True):   
     if spherical:
         P_error = get_momentum_error_dist(y, y_, spherical = True)        
     else:
         P_error = get_momentum_error_dist(y, y_, spherical = False)
-        
-    set_style('white')
-    set_context("paper", font_scale = 2)
-    fig = plt.figure(figsize=(12, 9))
-    fig = displot(data=DataFrame(data={"Momentum error": P_error}), kind="hist", bins=bins, aspect=aspect)
-    fig.set(xlabel='$|| \mathbf{p}_i -  \hat{\mathbf{p}}_i  ||$', ylabel='Count')
+
+    fig, axs = plt.subplots(figsize=(7,5))
+    n, bins, patches = plt.hist(x=P_error, bins='auto', color='#1A5276',
+                                alpha=0.7)
+    plt.grid(axis='y', alpha=0.75)
+    plt.xlabel('Momentum error [MeV / c]')
+    plt.xlim([-0.25,10])
+    plt.ylabel('Frequency')
+    plt.yscale('log')
     return fig
         
         
@@ -383,11 +386,11 @@ def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=Tru
     start_time = time.time()
     
     # Equation system for left, bottom bar of graph. 
-    # a1 * min_eval_ + b1 =  -min_eval_
+    # a1 * min_eval_ + b1 =  0
     # a1 * (epsilon + min_eval_) + b1 = depth
     # a1,b1 unknown.
     
-    # a2 * min_pred + b2 =  -min_pred
+    # a2 * min_pred + b2 =  0
     # a2 * (epsilon + min_pred) + b2 = depth
     # a2,b2 unknown.
 
@@ -402,8 +405,8 @@ def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=Tru
     A1 = np.array([[min_eval_,1],[epsilon + min_eval_,1]])
     A2 = np.array([[min_pred,1],[epsilon + min_pred ,1]])
 
-    v1 = np.array([-min_eval_, depth])
-    v2 = np.array([-min_pred, depth])
+    v1 = np.array([0, depth])
+    v2 = np.array([0, depth])
 
     a1,b1 = np.linalg.solve(A1,v1)
     a2,b2 = np.linalg.solve(A2,v2)
