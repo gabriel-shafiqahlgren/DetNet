@@ -20,7 +20,7 @@ from utils.models import CNN
 #from loss_funcion.loss_functions import loss_function_wrapper
 from loss_function.loss import LossFunction
 from utils.data_preprocess import load_data, get_eval_data
-from utils.help_methods import get_permutation_match, cartesian_to_spherical, get_measurement_of_performance
+from utils.help_methods import get_permutation_match, cartesian_to_spherical, get_measurement_of_performance, get_momentum_error_dist
 from contextlib import redirect_stdout
 from utils.plot_methods import plot_predictions
 
@@ -29,15 +29,16 @@ from utils.plot_methods import plot_predictions
 
 #### C-C-F NETWORK ####
 
-NPZ_DATAFILE = os.path.join(os.getcwd(), 'data', '3maxmul_0.1_10MeV_3000000_clus300.npz')
+NPZ_TRAINING = os.path.join(os.getcwd(), 'data', 'training10.npz')
+NPZ_EVAL = os.path.join(os.getcwd(), 'data', 'eval10.npz')
+
             #or import sys and use sys.argv[1]
-TOTAL_PORTION = 0.3333333333                                #portion of file data to be used, (0,1]
-EVAL_PORTION = 0.2                              #portion of total data for final evalutation (0,1)
+TOTAL_PORTION = 1                               #portion of file data to be used, (0,1]
 VALIDATION_SPLIT = 0.1                          #portion of training data for epoch validation
 CARTESIAN = True                                #train with cartesian coordinates instead of spherical
 CLASSIFICATION = False                          #train with classification nodes
 
-NO_EPOCHS = 30
+NO_EPOCHS = 50
                                                #Number of times to go through training data
 BATCH_SIZE = 2**8                                #The training batch size
 LEARNING_RATE = 1e-4                            #Learning rate/step size
@@ -73,11 +74,8 @@ def main():
     #load simulation data. OBS. labels need to be ordered in decreasing energy!
     
 #load simulation data. OBS. labels need to be ordered in decreasing energy!
-    data, labels = load_data(NPZ_DATAFILE, TOTAL_PORTION)
-    
-    #detach subset for final evaluation. train_** is for both training and validation
-    train_data, train_labels, eval_data, eval_labels = get_eval_data(data, labels,
-                                                                     eval_portion=EVAL_PORTION)
+    train_data, train_labels = load_data(NPZ_TRAINING, TOTAL_PORTION)
+    eval_data, eval_labels = load_data(NPZ_EVAL, TOTAL_PORTION)
     
     
     ### ------------- BUILD, TRAIN & TEST THE NEURAL NETWORK ------------------
@@ -95,17 +93,7 @@ def main():
                 batch_normalization = USE_BATCH_NORMALIZATION)
     
     max_mult = int(no_outputs / 3)
-    loss = LossFunction(max_mult, regression_loss='squared')
-
-    
-    """
-    #select loss function
-    loss_function = loss_function_wrapper(no_outputs, 
-                                          loss_type=LOSS_FUNCTION, 
-                                          permutation=PERMUTATION,
-                                          cartesian=CARTESIAN,
-                                          classification=CLASSIFICATION)
-    """
+    loss = LossFunction(max_mult, regression_loss='absolute')
     
     #select optimizer
     opt = Adam(lr=LEARNING_RATE)
@@ -128,14 +116,19 @@ def main():
     predictions = model.predict(eval_data)
     
     if PERMUTATION:
-        predictions, labels = get_permutation_match(predictions, eval_labels, loss, max_mult)
+        predictions, eval_labels = get_permutation_match(predictions, eval_labels, loss, max_mult)
+        
+        
     
     if CARTESIAN:
+        P_error_dist = get_momentum_error_dist(predictions, eval_labels, spherical=False)
+        print('MME = ' + str(np.mean(P_error_dist)))
+        print('ME per event = ' + str(np.sum(P_error_dist)/eval_labels.shape[0]))
         predictions = cartesian_to_spherical(predictions)
         eval_labels = cartesian_to_spherical(eval_labels)    
    
         
-    plot_predictions(predictions, eval_labels)
+    figure, rec_events = plot_predictions(predictions, eval_labels)
     
     #save weights
     model.save_weights(folder+'/weights.h5')
@@ -158,6 +151,7 @@ def main():
     #save predicted events and measurement of performance
     y = predictions
     y_ = eval_labels
+    
     events = {'predicted_energy': y[::,0::3].flatten(),
               'correct_energy': y_[::,0::3].flatten(), 
               
@@ -168,6 +162,8 @@ def main():
               'correct_phi': y_[::,2::3].flatten()}
     np.save(folder+'/events',events)
     mop = get_measurement_of_performance(y, y_)
+    print(mop['momentum mean'])
+    print(mop['momentum mean']*3)
     np.save(folder+'/mop',mop)
     return
 

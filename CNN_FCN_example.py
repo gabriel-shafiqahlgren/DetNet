@@ -15,78 +15,68 @@ import pickle
 import time
 start = time.time()
 
-from models import CN_FCN
-from loss_functions import loss_function_wrapper
-from utils import load_data
-from utils import get_eval_data
-from utils import get_permutation_match
-from utils import cartesian_to_spherical
-from utils import get_measurement_of_performance
+from utils.models import CN_FCN
 from contextlib import redirect_stdout
+
+from loss_function.loss import LossFunction
+from utils.data_preprocess import load_data, get_eval_data
+from utils.help_methods import get_permutation_match, cartesian_to_spherical
+from utils.help_methods import get_measurement_of_performance, get_momentum_error_dist
+from contextlib import redirect_stdout
+from utils.plot_methods import plot_predictions
 
 
 ## ----------------------------- PARAMETERS -----------------------------------
 
 #### C-F-C-F NETWORK ####
 
-NPZ_DATAFILE = 'Data/'+sys.argv[1]+'.npz'                #or import sys and use sys.argv[1]
+
+NPZ_TRAINING = os.path.join(os.getcwd(), 'data', 'training10.npz')
+NPZ_EVAL = os.path.join(os.getcwd(), 'data', 'eval10.npz')
+
 TOTAL_PORTION = 1                                #portion of file data to be used, (0,1]
-EVAL_PORTION = 0.1                              #portion of total data for final evalutation (0,1)
 VALIDATION_SPLIT = 0.1                          #portion of training data for epoch validation
 CARTESIAN = True                                #train with cartesian coordinates instead of spherical
 CLASSIFICATION = False                          #train with classification nodes
 
-NO_EPOCHS = int(sys.argv[2])
+NO_EPOCHS = 3
                                                #Number of times to go through training data
 BATCH_SIZE = 2**8                                #The training batch size
 LEARNING_RATE = 1e-4                            #Learning rate/step size
 PERMUTATION = True                              #set false if using an ordered data set
-LOSS_FUNCTION = 'mse'                           #type of loss: {mse, modulo, cosine} (only mse for cartesian)
 MAT_SORT = "CCT"                                #type of sorting used for the convolutional matrix
 USE_ROTATIONS = True
 USE_REFLECTIONS = True
+NAME = 'CNN_FCN'
 
-if sys.argv[3] == "T":
-   USE_BATCH_NORMALIZATION = True 
-else:
-   USE_BATCH_NORMALIZATION = False 
 
-FILTERS = [int(sys.argv[4]), int(sys.argv[5])]                            #must consist of even numbers!
-DEPTH = [int(sys.argv[6]), int(sys.argv[7])]   
+
+USE_BATCH_NORMALIZATION = True 
+ 
+
+FILTERS = [32, 16]    # [32, 16]                #must consist of even numbers!
+DEPTH = [3, 3]   # [3, 3] 
                 
 def main():
-    folder = "/"  
-    for i in range(len(sys.argv)-1):
-        i = i+1
-        folder = folder + sys.argv[i]
-        if i < len(sys.argv)-1:
-            folder = folder + "_"
-    #make folder
-    subf=0
-    folder_created = False
-    while folder_created == False:
+    folder = NAME
+    folder0 = folder
+    folder_name_taken = True
+    n = 0
+    while folder_name_taken:
+        n += 1
         try:
-            if subf == 0:
-                string = ""
-            else:
-                string = "/"+str(subf)
-            os.makedirs(os.getcwd()+"/Resultat"+folder+string)
-            folder_created = True
+            os.makedirs(folder)
+            folder_name_taken = False
         except FileExistsError:
-            subf += 1
-        if subf>20:
-            print("Fixa dina mappar!")
-    folder = os.getcwd()+"/Resultat"+folder+string
-    print("Skapat mapp: ", folder)
+            folder = folder0 + str(n)
+        if n==20: 
+            raise ValueError('change name!')
+    folder = folder+'/'
+    print("Skapat mapp: ", os.getcwd()+folder)
     
     #load simulation data. OBS. labels need to be ordered in decreasing energy!
-    data, labels = load_data(NPZ_DATAFILE, TOTAL_PORTION, 
-                             cartesian=CARTESIAN,
-                             classification=CLASSIFICATION)
-    
-    #detach subset for final evaluation. train_** is for both training and validation
-    train_data, train_labels, eval_data, eval_labels = get_eval_data(data, labels,
-                                                                     eval_portion=EVAL_PORTION)
+    train_data, train_labels = load_data(NPZ_TRAINING, TOTAL_PORTION)
+    eval_data, eval_labels = load_data(NPZ_EVAL, TOTAL_PORTION)
     
     
     ### ------------- BUILD, TRAIN & TEST THE NEURAL NETWORK ------------------
@@ -104,17 +94,15 @@ def main():
                 batch_normalization = USE_BATCH_NORMALIZATION)
     
     #select loss function
-    loss_function = loss_function_wrapper(no_outputs, 
-                                          loss_type=LOSS_FUNCTION, 
-                                          permutation=PERMUTATION,
-                                          cartesian=CARTESIAN,
-                                          classification=CLASSIFICATION)
+    max_mult = int(no_outputs / 3)
+    loss = LossFunction(max_mult, regression_loss='absolute')
+    
     
     #select optimizer
     opt = Adam(lr=LEARNING_RATE)
    
     #compile the network
-    model.compile(optimizer=opt, loss=loss_function, metrics=['accuracy'])
+    model.compile(optimizer=opt, loss=loss.get(), metrics=['accuracy'])
     
     es = EarlyStopping(monitor='val_loss', patience=5)
     mcp = ModelCheckpoint(filepath=folder+'/checkpoint', monitor='val_loss')
@@ -124,17 +112,27 @@ def main():
                          validation_split=VALIDATION_SPLIT,
                          callbacks=[es, mcp])
 
+    
     epochs = es.stopped_epoch
     if epochs == 0:
         epocs = NO_EPOCHS
     #plot predictions on evaluation data
     predictions = model.predict(eval_data)
-
+    
+    if PERMUTATION:
+        predictions, eval_labels = get_permutation_match(predictions, eval_labels, loss, max_mult)
+    
+    
     if CARTESIAN:
+        P_error_dist = get_momentum_error_dist(predictions, eval_labels, spherical=False)
+        print('MME = ' + str(np.mean(P_error_dist)))
+        print('ME per event = ' + str(np.sum(P_error_dist)/eval_labels.shape[0]))
         predictions = cartesian_to_spherical(predictions)
         eval_labels = cartesian_to_spherical(eval_labels)    
-    if PERMUTATION:
-        predictions, labels = get_permutation_match(predictions, eval_labels, CARTESIAN, loss_type=LOSS_FUNCTION)
+    
+    # Make the plot man
+    figure, rec_events = plot_predictions(predictions, eval_labels)
+
     
     #save weights
     model.save_weights(folder+'/weights.h5')
@@ -167,6 +165,8 @@ def main():
               'correct_phi': y_[::,2::3].flatten()}
     np.save(folder+'/events',events)
     mop = get_measurement_of_performance(y, y_)
+    print(mop['momentum mean'])
+    print(mop['momentum mean']*3)
     np.save(folder+'/mop',mop)
     return
 
