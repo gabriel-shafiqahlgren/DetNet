@@ -249,8 +249,8 @@ def ResNeXtHybrid(units, group_depth = 1, blocks = 1, skip_fn='relu', no_outputs
 
 def CNN(no_inputs, no_outputs, depth=3, width=80, filters = [256, 16, 4],
         sort = 'CCT', rotations = True, reflections = True, 
-        batch_normalization = True, max_pooling_rotations = True, 
-        max_pooling_reflections = True):
+        batch_normalization = True, max_pooling_rotations = False, 
+        max_pooling_reflections = False):
     """
 
     Parameters

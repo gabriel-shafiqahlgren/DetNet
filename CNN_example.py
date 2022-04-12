@@ -16,6 +16,7 @@ import time
 start = time.time()
 
 from utils.models import CNN
+from utils.help_methods import save_dictionary_csv
 
 #from loss_funcion.loss_functions import loss_function_wrapper
 from loss_function.loss import LossFunction
@@ -46,7 +47,9 @@ PERMUTATION = True                              #set false if using an ordered d
 MAT_SORT = "CCT"                                #type of sorting used for the convolutional matrix
 USE_ROTATIONS = True   
 USE_REFLECTIONS = True
-NAME = 'regular_CNN'
+NAME = sys.argv[1]
+MAX_POOLING_ROTATIONS = True
+MAX_POOLING_REFLECTIONS = False
 
 
 USE_BATCH_NORMALIZATION = True 
@@ -161,10 +164,25 @@ def main():
               'predicted_phi': np.mod(y[::,2::3], 2*np.pi).flatten(),
               'correct_phi': y_[::,2::3].flatten()}
     np.save(folder+'/events',events)
-    mop = get_measurement_of_performance(y, y_)
-    print(mop['momentum mean'])
-    print(mop['momentum mean']*3)
-    np.save(folder+'/mop',mop)
+    meas_perf = get_measurement_of_performance(y, y_)
+    
+    dct_Data = {'Loss': training.history['loss'][-1], 
+                'P mean': meas_perf['momentum mean'], 
+                'P std': meas_perf['momentum std'] ,
+                'Batch size': BATCH_SIZE,
+                'Learning rate': '{:.2e}'.format(LEARNING_RATE),
+                'Epochs': NO_EPOCHS, 
+                'Network': model._name, 
+                'Mat sort': MAT_SORT,
+                'Rotations': USE_ROTATIONS,
+                'Reflections': USE_REFLECTIONS,
+                'Max pool rotations': MAX_POOLING_ROTATIONS,
+                'Max pool reflections': MAX_POOLING_REFLECTIONS
+                }
+    print(meas_perf['momentum mean'])
+    print(meas_perf['momentum mean']*3)
+    np.save(folder+'/mop',meas_perf)
+    save_dictionary_csv(folder + '/dict.csv' )
     return
 
 if __name__ == '__main__':
