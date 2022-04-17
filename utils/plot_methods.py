@@ -628,3 +628,144 @@ def plot_predictions_bar_addback(y, y_, bins=500, show_detector_angles=True):
     
     print("Plotting time> --- %s seconds ---" % (time.time() - start_time))
     return fig, events
+
+       
+#scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
+def plot_predictions_bar_adjustable(y, y_, epsilon=0.06, bins=500, show_detector_angles=True, 
+                                    Ex_max=10, Ey_max=10, E_min=0, no_xticks=6, no_yticks=6):
+    start_time = time.time()
+    
+    # Equation system for left, bottom bar of graph. 
+    # a1 * min_eval_ + b1 =  0
+    # a1 * (epsilon + min_eval_) + b1 = depth
+    # a1,b1 unknown.
+    
+    # a2 * min_pred + b2 =  0
+    # a2 * (epsilon + min_pred) + b2 = depth
+    # a2,b2 unknown.
+
+    # 'epsilon': The threshold of energies to look into. [min value , min_value + epsilon] interval of energies is represented in the bar.
+    # 'depth': Width of the bar essentially. Around [-1 , -2] is good.
+
+    depth = -1.35
+
+    min_eval_ = min(y_[::,0::3].flatten()[np.nonzero(y_[::,0::3].flatten())]) # get lowest value that != 0
+    min_pred = min(y[::,0::3].flatten()[np.nonzero(y[::,0::3].flatten())]) # get lowest value that != 0
+
+    A1 = np.array([[min_eval_,1],[epsilon + min_eval_,1]])
+    A2 = np.array([[min_pred,1],[epsilon + min_pred ,1]])
+
+    v1 = np.array([0, depth])
+    v2 = np.array([0, depth])
+
+    a1,b1 = np.linalg.solve(A1,v1)
+    a2,b2 = np.linalg.solve(A2,v2)
+
+    # For leftbar: Intention is to map the lowest 'y_, eval_' value to -of the lowest value != 0 and highest (epsilon + lowest value) 
+    # to 'depth'. 'y, predictions' values remain unchanged
+    # For bottombar: Maps the lowest value to -lowest value and the highest to 'depth'.
+
+    E_pred = y[::,0::3].flatten()
+    E_eval = y_[::,0::3].flatten()
+
+    Y_leftbar = np.array([E_pred[i] for i, e in enumerate(E_eval) if e < min_eval_ +  epsilon and e != 0.])
+    X_leftbar = np.array([a1*E_eval[i]+b1 for i, e in enumerate(E_eval) if e < min_eval_ + epsilon and e != 0.])
+    Y_botbar = np.array([a2*E_pred[i]+b2 for i, e in enumerate(E_pred) if e < min_pred + epsilon])
+    X_botbar = np.array([E_eval[i] for i, e in enumerate(E_pred) if e < min_pred + epsilon])
+
+    events = {'predicted_energy': np.concatenate([y[::,0::3].flatten(), Y_leftbar, Y_botbar]),
+              'correct_energy': np.concatenate([y_[::,0::3].flatten(), X_leftbar, X_botbar]), 
+
+              'predicted_theta': y[::,1::3].flatten(),
+              'correct_theta': y_[::,1::3].flatten(),
+
+              'predicted_phi': np.mod(y[::,2::3], 2*np.pi).flatten(),
+              'correct_phi': y_[::,2::3].flatten()}
+
+
+    fig, axs = plt.subplots(1,3, figsize=(20, 8))
+    colormap = truncate_colormap(plt.cm.afmhot, 0.0, 1.0)
+    img = []
+    img.append(axs[0].hist2d(events['correct_energy'], events['predicted_energy'],cmap=colormap, bins=bins, norm=LogNorm()))
+    img.append(axs[1].hist2d(events['correct_theta'], events['predicted_theta'], cmap=colormap, bins=bins, norm=LogNorm()))
+    img.append(axs[2].hist2d(events['correct_phi'], events['predicted_phi'], cmap=colormap, bins=bins, norm=LogNorm()))
+
+    max_theta = np.pi
+    max_phi = 2*np.pi
+    line_color = 'blue'
+
+    line = np.linspace(0, Ey_max)
+    for i in range(0,3):
+        axs[i].plot(line,line, color=line_color, linewidth = 2, linestyle = '-.')
+
+    hline = np.linspace(depth,max([Ex_max, Ey_max]))
+    axs[0].plot(np.zeros(50), hline, color=line_color, linewidth = 2)
+    axs[0].plot(hline, np.zeros(50), color=line_color, linewidth = 2)
+
+
+    if show_detector_angles:
+        detector_theta, detector_phi = get_detector_angles()
+        axs[1].scatter(detector_theta, detector_theta, marker='x')
+        axs[2].scatter(detector_phi, detector_phi, marker='x')
+
+
+    axs[0].set_xlabel(r'Korrekt $ E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_xlabel(r'Korrekt $ \theta$', fontsize = TEXT_SIZE)
+    axs[2].set_xlabel(r'Korrekt $ \phi$', fontsize = TEXT_SIZE)
+    axs[0].set_ylabel(r'Rekonstruerad $E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_ylabel(r'Rekonstruerad $ \theta$', fontsize = TEXT_SIZE)
+    axs[2].set_ylabel(r'Rekonstruerad $ \phi$', fontsize = TEXT_SIZE)
+
+    axs[0].set_xlim([depth, Ex_max])
+    axs[0].set_ylim([depth, Ey_max])
+    axs[0].set_aspect('equal', 'box')
+    axs[1].set_xlim([0, max_theta])
+    axs[1].set_ylim([0, max_theta])
+    axs[1].set_aspect('equal', 'box')
+    axs[2].set_xlim([0, max_phi])
+    axs[2].set_ylim([0, max_phi])
+    axs[2].set_aspect('equal', 'box')
+
+    cb1 = fig.colorbar(img[0][3], ax = axs[0], fraction=0.046, pad = 0.04)
+    # fig.delaxes(cb1.ax)
+    cb2 = fig.colorbar(img[1][3], ax = axs[1], fraction=0.046, pad = 0.04)
+    # fig.delaxes(cb2.ax)
+    cb3 = fig.colorbar(img[2][3], ax = axs[2], fraction=0.046, pad= 0.04)
+
+    cb1.ax.tick_params(labelsize = TEXT_SIZE, which='major')
+    cb2.ax.tick_params(labelsize = TEXT_SIZE, which='major')
+    cb3.ax.tick_params(labelsize = TEXT_SIZE, which='major')
+
+    axs[0].tick_params(axis='both', which='major', labelsize=TEXT_SIZE)
+    axs[1].tick_params(axis='both', which='major', labelsize=TEXT_SIZE)
+    axs[2].tick_params(axis='both', which='major', labelsize=TEXT_SIZE)
+
+
+    x_ticks = list(np.linspace(E_min, Ex_max, no_xticks))
+    y_ticks = list(np.linspace(E_min, Ey_max, no_yticks))
+    
+    def make_ticks_str(ticks):
+        ticks_str = []
+        for tick in ticks:
+            if tick%1 == 0:
+                ticks_str.append(str(int(tick)))
+            else:
+                ticks_str.append(str(round(tick, 1)))
+        return ticks_str
+
+    plt.sca(axs[0])
+    plt.xticks(x_ticks,make_ticks_str(x_ticks))
+    plt.yticks(y_ticks,make_ticks_str(y_ticks))
+
+    plt.sca(axs[1])
+    plt.xticks(np.linspace(0, np.pi, 3),['0','$\pi/2$','$\pi$'])
+    plt.yticks(np.linspace(0, np.pi, 3),['0','$\pi/2$','$\pi$'])
+
+    plt.sca(axs[2])
+    plt.xticks(np.linspace(0, 2*np.pi, 3),['0','$\pi$','$2\pi$'])
+    plt.yticks(np.linspace(0, 2*np.pi, 3),['0','$\pi$','$2\pi$'])
+
+    fig.tight_layout()
+    print("Plotting time> --- %s seconds ---" % (time.time() - start_time))
+    return fig, events
+
