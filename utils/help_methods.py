@@ -237,7 +237,6 @@ def get_permutation_match_with_permutations(predictions, labels):
             for m in range(pred_mult):
                 new_pred_index = (maxmult_pred - maxmult_labels + optimal_permutation[m])*3
                 new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, available_prediction_j[m]*3)
-                #available_prediction_j.remove(available_prediction_j[m])
                 
             
     
@@ -354,6 +353,10 @@ def get_measurement_of_performance(y, y_, spherical=True):
     theta and phi for given predictions and labels.
     
     """
+    
+    assert(y.shape == y_.shape)
+    max_mult = y_.shape[1]/3
+    
     if spherical:
         cart_y = spherical_to_cartesian(y)
         cart_y_ = spherical_to_cartesian(y_)
@@ -376,11 +379,16 @@ def get_measurement_of_performance(y, y_, spherical=True):
     mean = (np.mean(energy_error), np.mean(theta_error), np.mean(phi_error))
     std = (np.std(energy_error), np.std(theta_error), np.std(phi_error))
     
-    P_error = get_momentum_error_dist(cart_y,cart_y_, spherical=False)
+    P_error = np.array(get_momentum_error_dist(cart_y,cart_y_, spherical=False))
     P_mean = np.mean(P_error)
-    P_std = np.std(P_error)    
+    P_std = np.std(P_error)
+    
+    P_err_event = np.sum(P_error.reshape(-1, max_mult), axis=1)
+    event_mean = np.mean(P_err_event)
+    event_std = np.std(P_err_event)
 
-    return {'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std}
+    return {'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std, 
+            'event mean': event_mean, 'event std': event_std}
     
 def save(folder, figure, learning_curve, model):
     folder0 = folder
