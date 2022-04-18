@@ -355,7 +355,7 @@ def get_measurement_of_performance(y, y_, spherical=True):
     """
     
     assert(y.shape == y_.shape)
-    max_mult = y_.shape[1]/3
+    max_mult = int(y_.shape[1]/3)
     
     if spherical:
         cart_y = spherical_to_cartesian(y)

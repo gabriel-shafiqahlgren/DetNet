@@ -15,6 +15,7 @@ from addback import reshapeArrayZeroPadding
 
 # Data paths
 EVAL_FOLDER = '/cephyr/NOBACKUP/groups/snic2022-5-74/eval'
+FIGURE_FOLDER = os.path.join(os.getcwd(), 'eval_figures')
 LARGE_EVAL = 'eval10_train.npz' # Need large eval file 
 NOISE_EVAL = 'eval10_train.npz'
 LOW_ENERGY = 'eval5_all.npz' # Need low energy without all events
@@ -23,7 +24,7 @@ HIGH_ENERGY = 'eval_15.npz'
 MULT_2 = 'eval10_2gamma_all.npz' 
 MULT_4 = 'eval10_4gamma_all.npz'
 MULT_5 = 'eval10_5gamma_all.npz'
-REGRESSION_LOSS = 'squared'
+REGRESSION_LOSS = 'absolute'
 
 
 
@@ -32,6 +33,8 @@ def evaluate_model(model):
     evaluate_with_noise(model)
     evaluate_lower_energies(model)
     evaluate_higher_energies(model)
+    evaluate_lower_multiplicities(model)
+    evaluate_higher_multiplicities(model)
     return
 
 
@@ -39,7 +42,7 @@ def predict_model(model, data, labels, regression_loss):
     
     predictions = model.predict(data)
     
-    max_mult = len(data[0])/3
+    max_mult = int(labels.shape[1]/3)
     loss = LossFunction(max_mult, regression_loss=regression_loss)
    
     predictions, labels = get_permutation_match(predictions, labels, loss, max_mult)
@@ -54,40 +57,40 @@ def plot_and_print_performance(predictions, labels, message, Ex=10, Ey=10):
     predictions = cartesian_to_spherical(predictions, error=False)
     labels = cartesian_to_spherical(labels, error=False)
     
-    return plot_predictions_bar_adjustable(predictions, labels, show_detector_angles=True,
+    fig, events =  plot_predictions_bar_adjustable(predictions, labels, show_detector_angles=True,
                                                          Ex_max=Ex, Ey_max=Ey)
-    
+    fig.savefig(os.path.join(FIGURE_FOLDER, message + '.png'))
+    return fig, events
     
 def evaluate_new_eval_data(model):
     data, labels = load_data(os.path.join(EVAL_FOLDER, LARGE_EVAL), total_portion=1)
     
-    predictions, labels = predict_model(model. data, labels, regression_loss=REGRESSION_LOSS)
+    predictions, labels = predict_model(model, data, labels, regression_loss=REGRESSION_LOSS)
     
-    return plot_and_print_performance(predictions, labels, 'New eval data')
-    
+    return plot_and_print_performance(predictions, labels, 'New_eval_data')
 
 def evaluate_with_noise(model):
     data, labels = load_data(os.path.join(EVAL_FOLDER, NOISE_EVAL), total_portion=1)
     
-    predictions, labels = predict_model(model. data, labels, regression_loss=REGRESSION_LOSS)
+    predictions, labels = predict_model(model, data, labels, regression_loss=REGRESSION_LOSS)
     
-    return plot_and_print_performance(predictions, labels, 'Data with noise')
+    return plot_and_print_performance(predictions, labels, 'Data_with_noise')
     
 
 def evaluate_lower_energies(model):
     data, labels = load_data(os.path.join(EVAL_FOLDER, LOW_ENERGY), total_portion=1)
     
-    predictions, labels = predict_model(model. data, labels, regression_loss=REGRESSION_LOSS)
+    predictions, labels = predict_model(model, data, labels, regression_loss=REGRESSION_LOSS)
     
-    return plot_and_print_performance(predictions, labels, 'Lower energies', Ex=5)
+    return plot_and_print_performance(predictions, labels, 'Lower_energies', Ex=5)
     
 
 def evaluate_higher_energies(model):
     data, labels = load_data(os.path.join(EVAL_FOLDER, LOW_ENERGY), total_portion=1)
     
-    predictions, labels = predict_model(model. data, labels, regression_loss=REGRESSION_LOSS)
+    predictions, labels = predict_model(model, data, labels, regression_loss=REGRESSION_LOSS)
     
-    return plot_and_print_performance(predictions, labels, 'Higher energies', Ex=15, Ey=15)
+    return plot_and_print_performance(predictions, labels, 'Higher_energies', Ex=15, Ey=15)
 
 ### Not finished
 
@@ -99,7 +102,7 @@ def evaluate_lower_multiplicities(model):
     predictions, labels = get_permutation_match_with_permutations(predictions, labels)
     labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
     
-    return plot_and_print_performance(predictions, labels, 'm=2')
+    return plot_and_print_performance(predictions, labels, 'm_2')
 
 def evaluate_higher_multiplicities(model):
     data, labels = load_data(os.path.join(EVAL_FOLDER, MULT_4), total_portion=1)
@@ -109,7 +112,7 @@ def evaluate_higher_multiplicities(model):
     predictions, labels = get_permutation_match_with_permutations(predictions, labels)
     labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
 
-    return plot_and_print_performance(predictions, labels, 'm=4')
+    return plot_and_print_performance(predictions, labels, 'm_4')
     
 
 
