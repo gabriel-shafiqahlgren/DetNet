@@ -631,7 +631,7 @@ def plot_predictions_bar_addback(y, y_, bins=500, show_detector_angles=True):
 
        
 #scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
-def plot_predictions_bar_adjustable(y, y_, epsilon=0.06, bins=500, show_detector_angles=True, 
+def plot_predictions_bar_adjustable(y, y_, epsilon=0.1, bins=500, show_detector_angles=True, 
                                     Ex_max=10, Ey_max=10, E_min=0, no_xticks=6, no_yticks=6):
     start_time = time.time()
     
