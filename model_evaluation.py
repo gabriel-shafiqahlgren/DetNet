@@ -55,11 +55,11 @@ def plot_and_print_performance(predictions, labels, message, Ex=10, Ey=10):
     mop = get_measurement_of_performance(predictions, labels, spherical=False)
     print(message + '\n' + str(mop))
     
-    predictions = cartesian_to_spherical(predictions, error=True)
-    labels = cartesian_to_spherical(labels, error=True)
+    #predictions = cartesian_to_spherical(predictions, error=True)
+    #labels = cartesian_to_spherical(labels, error=True)
     
     fig, events =  plot_predictions_bar_adjustable(predictions, labels, show_detector_angles=True,
-                                                         Ex_max=Ex, Ey_max=Ey, epsilon=0.1)
+                                                         Ex_max=Ex, Ey_max=Ey, epsilon=0.1, remove_zero_angles=True)
     fig.savefig(os.path.join(FIGURE_FOLDER, message + '.png'))
     return fig, events
     

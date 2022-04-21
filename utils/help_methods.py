@@ -263,7 +263,7 @@ def spherical_to_cartesian(spherical):
     cartesian[::,2::3] = pz
     return cartesian
 
-def cartesian_to_spherical(cartesian, error=False):
+def cartesian_to_spherical(cartesian, error=False, tol=1e-3, low=-1.0, high=-0.1):
     """
     Coordinate transform (px, py, pz) --> (energy, theta, phi). Used for labels 
     and predictions after training.
@@ -274,15 +274,15 @@ def cartesian_to_spherical(cartesian, error=False):
     pz = cartesian[::,2::3]
     energy = np.sqrt(px*px + py*py + pz*pz)
     
-    tol = 1e-3
     get_theta = lambda z,r: np.arccos(np.divide(z, r, out=np.ones_like(z), where=r>tol))
     get_phi = lambda y,x: np.arctan2(y,x)
     
     if error:
         zero_to_random = 0
     else:
-        zero_to_random = np.random.uniform(low=-1.0, high=-.1, size=np.shape(energy))
-    
+        zero_to_random = np.random.uniform(low, high, size=np.shape(energy))
+
+    #Where E<tol do first, else do second arg, 
     theta = np.where(energy <tol , 0, get_theta(pz, energy))
     phi = np.where(energy <tol , 0, get_phi(py, px))
     energy = np.where(energy <tol , zero_to_random, energy)

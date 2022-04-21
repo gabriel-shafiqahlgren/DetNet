@@ -23,7 +23,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d import proj3d
 
 from utils.help_methods import get_detector_angles
-from utils.help_methods import get_momentum_error_dist
+from utils.help_methods import get_momentum_error_dist, cartesian_to_spherical
 
 from pandas import DataFrame
 from seaborn import set_style, set_context, displot
@@ -629,37 +629,28 @@ def plot_predictions_bar_addback(y, y_, bins=500, show_detector_angles=True):
     print("Plotting time> --- %s seconds ---" % (time.time() - start_time))
     return fig, events
 
-       
+
 #scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
 def plot_predictions_bar_adjustable(y, y_, epsilon=0.1, bins=500, show_detector_angles=True, 
-                                    Ex_max=10, Ey_max=10, E_min=0, no_xticks=6, no_yticks=6):
+                                    Ex_max=10, Ey_max=10, E_min=0, no_xticks=6, no_yticks=6, remove_zero_angles=False):
     start_time = time.time()
-    
-    # Equation system for left, bottom bar of graph. 
-    # a1 * min_eval_ + b1 =  0
-    # a1 * (epsilon + min_eval_) + b1 = depth
-    # a1,b1 unknown.
-    
-    # a2 * min_pred + b2 =  0
-    # a2 * (epsilon + min_pred) + b2 = depth
-    # a2,b2 unknown.
 
     # 'epsilon': The threshold of energies to look into. [min value , min_value + epsilon] interval of energies is represented in the bar.
     # 'depth': Width of the bar essentially. Around [-1 , -2] is good.
 
-    depth = -1.35
-
-    min_eval_ = min(y_[::,0::3].flatten()[np.nonzero(y_[::,0::3].flatten())]) # get lowest value that != 0
-    min_pred = min(y[::,0::3].flatten()[np.nonzero(y[::,0::3].flatten())]) # get lowest value that != 0
-
-    A1 = np.array([[min_eval_,1],[epsilon + min_eval_,1]])
-    A2 = np.array([[min_pred,1],[epsilon + min_pred ,1]])
-
-    v1 = np.array([0, depth])
-    v2 = np.array([0, depth])
-
-    a1,b1 = np.linalg.solve(A1,v1)
-    a2,b2 = np.linalg.solve(A2,v2)
+    if not len(y)==len(y_):
+        raise TypeError('The prediction must be of same length as labels.') 
+    
+    bar_width = 0.1
+    error_width = 1
+    
+    if (y>0).all() or (y_>0).all():
+        raise ValueError('Requires carteesian coordinates. Ignore if small aray size.')
+    
+    hi = epsilon-bar_width
+    lo = hi-error_width
+    y = cartesian_to_spherical(y, error=False, tol=epsilon, low=lo, high=hi)
+    y_ = cartesian_to_spherical(y_, error=False, tol=epsilon, low=lo, high=hi)
 
     # For leftbar: Intention is to map the lowest 'y_, eval_' value to -of the lowest value != 0 and highest (epsilon + lowest value) 
     # to 'depth'. 'y, predictions' values remain unchanged
@@ -667,21 +658,25 @@ def plot_predictions_bar_adjustable(y, y_, epsilon=0.1, bins=500, show_detector_
 
     E_pred = y[::,0::3].flatten()
     E_eval = y_[::,0::3].flatten()
+    theta_pred = y[::,1::3].flatten()
+    theta_eval = y_[::,1::3].flatten()
+    phi_pred = np.mod(y[::,2::3], 2*np.pi).flatten()
+    phi_eval = y_[::,2::3].flatten()
 
-    Y_leftbar = np.array([E_pred[i] for i, e in enumerate(E_eval) if e < min_eval_ +  epsilon and e != 0.])
-    X_leftbar = np.array([a1*E_eval[i]+b1 for i, e in enumerate(E_eval) if e < min_eval_ + epsilon and e != 0.])
-    Y_botbar = np.array([a2*E_pred[i]+b2 for i, e in enumerate(E_pred) if e < min_pred + epsilon])
-    X_botbar = np.array([E_eval[i] for i, e in enumerate(E_pred) if e < min_pred + epsilon])
-
-    events = {'predicted_energy': np.concatenate([y[::,0::3].flatten(), Y_leftbar, Y_botbar]),
-              'correct_energy': np.concatenate([y_[::,0::3].flatten(), X_leftbar, X_botbar]), 
-
-              'predicted_theta': y[::,1::3].flatten(),
-              'correct_theta': y_[::,1::3].flatten(),
-
-              'predicted_phi': np.mod(y[::,2::3], 2*np.pi).flatten(),
-              'correct_phi': y_[::,2::3].flatten()}
-
+    if remove_zero_angles:
+        mask  = (theta_pred!=0) | (theta_eval!=0)
+        theta_pred, theta_eval = theta_pred[mask], theta_eval[mask]
+        mask  = (phi_pred!=0) | (phi_eval!=0)
+        phi_pred, phi_eval = phi_pred[mask], phi_eval[mask]
+    
+    events = {'predicted_energy': E_pred,
+              'correct_energy': E_eval, 
+              
+              'predicted_theta': theta_pred,
+              'correct_theta': theta_eval,
+              
+              'predicted_phi': phi_pred,
+              'correct_phi': phi_eval}
 
     fig, axs = plt.subplots(1,3, figsize=(20, 8))
     colormap = truncate_colormap(plt.cm.afmhot, 0.0, 1.0)
@@ -698,16 +693,15 @@ def plot_predictions_bar_adjustable(y, y_, epsilon=0.1, bins=500, show_detector_
     for i in range(0,3):
         axs[i].plot(line,line, color=line_color, linewidth = 2, linestyle = '-.')
 
-    hline = np.linspace(depth,max([Ex_max, Ey_max]))
-    axs[0].plot(np.zeros(50), hline, color=line_color, linewidth = 2)
+    hline = np.linspace(lo, Ex_max)
+    vline = np.linspace(lo, Ey_max)
     axs[0].plot(hline, np.zeros(50), color=line_color, linewidth = 2)
-
+    axs[0].plot(np.zeros(50), vline, color=line_color, linewidth = 2)
 
     if show_detector_angles:
         detector_theta, detector_phi = get_detector_angles()
         axs[1].scatter(detector_theta, detector_theta, marker='x')
         axs[2].scatter(detector_phi, detector_phi, marker='x')
-
 
     axs[0].set_xlabel(r'Korrekt $ E$ [MeV]', fontsize = TEXT_SIZE)
     axs[1].set_xlabel(r'Korrekt $ \theta$', fontsize = TEXT_SIZE)
@@ -716,8 +710,8 @@ def plot_predictions_bar_adjustable(y, y_, epsilon=0.1, bins=500, show_detector_
     axs[1].set_ylabel(r'Rekonstruerad $ \theta$', fontsize = TEXT_SIZE)
     axs[2].set_ylabel(r'Rekonstruerad $ \phi$', fontsize = TEXT_SIZE)
 
-    axs[0].set_xlim([depth, Ex_max])
-    axs[0].set_ylim([depth, Ey_max])
+    axs[0].set_xlim([lo, Ex_max])
+    axs[0].set_ylim([lo, Ey_max])
     axs[0].set_aspect('equal', 'box')
     axs[1].set_xlim([0, max_theta])
     axs[1].set_ylim([0, max_theta])
@@ -739,8 +733,7 @@ def plot_predictions_bar_adjustable(y, y_, epsilon=0.1, bins=500, show_detector_
     axs[0].tick_params(axis='both', which='major', labelsize=TEXT_SIZE)
     axs[1].tick_params(axis='both', which='major', labelsize=TEXT_SIZE)
     axs[2].tick_params(axis='both', which='major', labelsize=TEXT_SIZE)
-
-
+    
     x_ticks = list(np.linspace(E_min, Ex_max, no_xticks))
     y_ticks = list(np.linspace(E_min, Ey_max, no_yticks))
     

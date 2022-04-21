@@ -16,7 +16,7 @@ from utils.help_methods import get_permutation_match, get_permutation_match_with
 
 from loss_function.loss import LossFunction
 
-from utils.plot_methods import plot_predictions_bar_addback
+#from utils.plot_methods import plot_predictions_bar_addback
 
 
 def main():
@@ -52,8 +52,7 @@ def main():
     
     predictions = cartesian_to_spherical(predictions, error=False)
     labels = cartesian_to_spherical(labels, error=False)
-    figure, rec_events = plot_predictions_bar_addback(predictions, labels, show_detector_angles=True)
-
+    figure, rec_events = plot_predictions_bar_addbackplot_predictions_bar_adjustable(predictions, labels, Ey_max=20, no_yticks=11, remove_zero_angles=True)
 
 class Crystal:
     def __init__(self, index, crystal_type, E, theta, phi, visited, neighbors):
