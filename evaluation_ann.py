@@ -5,6 +5,7 @@ Created on Sun Mar 28
 Runs the addback routine and FCN on several evaluation data files. Stores the MME 
 values in a .txt-file. This is only working for 
 
+Comment> Would be alot easier if the models were saved rather than their weights.
 @author: gabahl, bjoj
 """
 import os
@@ -64,16 +65,18 @@ def main():
         # Minimize the MME/event
         predictions, labels = get_permutation_match_with_permutations(predictions, labels)
         labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
-        MME_event = np.sum(get_momentum_error_dist(predictions, labels, False))/len(labels)
-        MME = MME_event/3
+                
+        MME = np.mean(get_momentum_error_dist(predictions, labels, False))
+        # MME_event = np.sum(get_momentum_error_dist(predictions, labels, False))/len(labels)
+        # MME = MME_event/3
         save_file.open(save_file_name, 'a')
         save_file.write(MME + ' ')
         save_file.close()
     
     # Sweep through the FCNs
-    for weight_file in weight_files
+    for weight_file in weight_files:  
         # Go through all evaluation files for each FCN model
-        for data_file in data_files 
+        for data_file in data_files:
             data, labels = load_data(data_file, total_portion=1, portion_zeros=PORTION_ZEROS)
             no_inputs = len(data[0])
             no_outputs = len(labels[0])
@@ -91,10 +94,11 @@ def main():
                 model = Dense_ResNet(no_inputs, no_outputs, no_nodes, no_blocks, no_skipped_layers=3)
         
             max_mult = int(no_outputs / 3)
-            loss = LossFunction(max_mult, regression_loss='squared')
+            # loss = LossFunction(max_mult, regression_loss='squared') 
+            loss = LossFunction(max_mult, regression_loss='absolute') 
             model.compile(optimizer=Adam(lr=LEARNING_RATE), loss=loss.get(), metrics=['accuracy'])
         
-            model.load_weights(weight_files)
+            model.load_weights(weight_file)
 
             # Make reconstructions
             predictions = model.predict(data)
@@ -103,16 +107,16 @@ def main():
     
             #Check results
             ME_dist = get_momentum_error_dist(predictions, labels, False)
-            print('Total momentum error MME = ', np.sum(ME_dist))
-            print('MME = ', np.sum(ME_dist)/len(predictions)/3)
+            print('Total momentum error = ', np.sum(ME_dist))
+            print('MME = ', np.mean(ME_dist))
 
             # These are not needed for this script
             #predictions = cartesian_to_spherical(predictions, error=False)
             #labels = cartesian_to_spherical(labels, error=False)
 
     
-if __name__ == "__main__":
-    main() _angles=True)
+# if __name__ == "__main__":
+#     main() _angles=True) # ??
 
     
 if __name__ == "__main__":
