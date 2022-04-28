@@ -5,7 +5,6 @@
 """
 import numpy as np
 from tensorflow.keras import backend as K
-
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import add
@@ -14,7 +13,7 @@ from tensorflow.keras.layers import BatchNormalization
 from keras.layers import Normalization
 
 from tensorflow.keras.layers import Activation
-from tensorflow.keras import activations
+from tensorflow.keras import activations, regularizers
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.nn import relu, softsign, softmax, gelu, log_softmax, log_poisson_loss, elu
@@ -186,57 +185,80 @@ def ResNeXt_block(units, groups, group_depth, list_depth, repeat_num, batch_norm
 
     return block
 
+
 class ListDenseHybrid(Layer):
     '''
-    A ResNet model with variable amount of layers and variable
-    number of neurons for every layer.
-    
+    A ResNet model with a possible normalization layer.    
     '''
     def __init__(self,  
-                 units): # units: a vector that contains the # of neurons
+                 units,
+                 norm_layer): # units: a vector that contains the # of neurons
                          # for each layer.
         super(ListDenseHybrid, self).__init__()    
-        
+                
         self.list_depth = len(units) 
         self.units = units     
+        self.layers = [Dense(units[i],activation='relu') for i in range(self.list_depth)]        
+        self.norm = False
         
-        self.layers = [Dense(units[i], activation='relu') for i in range(self.list_depth)]
+        if 'batch_norm' in norm_layer:    
+            self.norm, self.normalization_layer = True, BatchNormalization()
+            print('Batch normalization.')
+            
+        elif 'layer_norm' in norm_layer:
+            self.norm, self.normalization_layer = True, Normalization()
+            print('Layer normalization.')
+            
+        elif 'weight_norm' in norm_layer:
+            self.norm, self.normalization_layer = True, WeightNormalization(Dense(units[list_depth[0]-1,0] * self.groups))
+            print('Weight normalization.')
         
-    def call(self, inputs):
-        x = self.layers[0](inputs)
-        for i in range(1,self.list_depth):
-            x = self.layers[i](x)            
-        return x
+        
+    def call(self, inputs):        
+        if self.list_depth > 4:       
+            x = self.layers[0](inputs)        
+            x = self.layers[1](x)      
+            x = self.layers[2](x)             
+            
+            if self.norm:
+                x = self.normalization_layer(x)
+            
+            x_m = x = self.layers[3](add([inputs, x]))
+
+            for i in range(4,self.list_depth):     
+                x = self.layers[i](x)  
+        else:
+            x_m = inputs
+            x  = self.layers[0](inputs)               
+            if self.norm:
+                x = self.normalization_layer(x)
+            
+            for i in range(1,self.list_depth):     
+                x = self.layers[i](x)      
+        return add([x_m,x])
+    
 
 class GroupDenseHybrid(Layer):
-    '''
-    Splits input tensor to a number (cardinality/group) of 'ListDense' layers
-    and then concats the output of each group.
-    Now involves shortcuts (resnet).
-    Assumes that the last amount neurons for every group is the same and that
-    the first group is one of the deepest groups.
-    '''
     def __init__(self, 
                  units, # Needs matrix as input
                  groups, # Integer
                  list_depth,
-                 skip_fn = 'relu'): # Vector of length = groups
+                 skip_fn = 'relu',
+                 norm_layer = None): 
         super(GroupDenseHybrid, self).__init__()
 
         self.units = units # Matrix
         self.groups = groups # Int
         self.skip_fn = skip_fn        
-        self.list_dense = [ListDenseHybrid(units[0:list_depth[i],i]) for i in range(groups)]
+        self.list_dense = [ListDenseHybrid(units[0:list_depth[i],i], norm_layer) for i in range(groups)]
         self.activation_functions = {'relu': relu, 'elu': elu, 'gelu':  gelu, 'softsign': softsign,
                                     'softmax': softmax, 'log_softmax': log_softmax, 'linear': linear}
      
-
     def call(self, inputs):
         feature_map_list = []
         for i in range(self.groups):
             x_i = self.list_dense[i](split(inputs,self.groups,axis=1)[i])
-            output = self.activation_functions[self.skip_fn](add([x_i, split(inputs,self.groups,axis=1)[i]]))
-            feature_map_list.append(output)
+            feature_map_list.append(self.activation_functions[self.skip_fn](x_i))
         out = concat(feature_map_list, axis=-1)
         return out
 
@@ -260,22 +282,24 @@ class ResNeXtHybrid(Layer):
                  skip_fn = 'relu'):
         super(ResNeXtHybrid, self).__init__()
         
-        # Need to reshape the units matrix. The network
-        # requires a square matrix -> adds padding of zeros.
-        n,m = units.shape
-        pad1,pad2 = 0,0
-        if n > m: 
-            pad1 = n-m
-            pad2 = 0
+        def addPadding(units):
+            # Need to reshape the units matrix. The network
+            # requires a square matrix -> adds padding of zeros.
+            n,m = units.shape
+            pad1,pad2 = 0,0
+            if n > m: 
+                pad1 = n-m
+                pad2 = 0
 
-        if n < m: 
-            pad1 = 0
-            pad2 = m-n
+            if n < m: 
+                pad1 = 0
+                pad2 = m-n
 
-        # npad is a tuple of (n_before, n_after) for each dimension
-        npad = ((0, pad2), (0, pad1))
-        
-        self.units = np.pad(units, pad_width=npad, mode='constant', constant_values=0)
+            # npad is a tuple of (n_before, n_after) for each dimension
+            npad = ((0, pad2), (0, pad1))
+            return np.pad(units, pad_width=npad, mode='constant', constant_values=0)
+                
+        self.units = addPadding(units)
         
         # Get depth of each group (amount of layers in that path / group).
         
@@ -302,25 +326,7 @@ class ResNeXtHybrid(Layer):
         print(list_depth)
         
         self.group_depth = group_depth
-        self.groups = len(list_depth)  
-        
-        self.norm = False
-        
-        if 'batch_norm' in norm_layer:    
-            self.norm, self.normalization_layer = True, BatchNormalization()
-            print('Batch normalization.')
-            
-        elif 'layer_norm' in norm_layer:
-            self.norm, self.normalization_layer = True, Normalization()
-            print('Layer normalization.')
-            
-        elif 'weight_norm' in norm_layer:
-            self.norm, self.normalization_layer = True, WeightNormalization(Dense(units[list_depth[0]-1,0] * self.groups))
-            print('Weight normalization.')
-        
-        else:
-            print('No normalization layer.')
-                  
+        self.groups = len(list_depth)                           
         
         self.dense = Dense(self.units[list_depth[0]-1,0] * self.groups, activation='relu')  
         
@@ -328,17 +334,17 @@ class ResNeXtHybrid(Layer):
         self.group_dense_list = [GroupDenseHybrid(units=self.units,
                                                   groups=self.groups,
                                                   list_depth=list_depth,
-                                                  skip_fn=skip_fn) for _ in range(group_depth)]     
+                                                  skip_fn=skip_fn,
+                                                  norm_layer=norm_layer) for _ in range(group_depth)]     
                     
+            
     def call(self, inputs, training=None, **kwargs):
         x0 = self.dense(inputs)
         
         x = self.group_dense_list[0](x0)
+        
         for i in range(1,self.group_depth):
             x = self.group_dense_list[i](x)
-
-        if self.norm:            
-            x = self.normalization_layer(x)    
             
         output = relu(add([x, x0]))
         return output
