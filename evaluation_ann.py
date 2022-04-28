@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sun Mar 27 21:35:31 2022
+Created on Sun Mar 28
+Runs the addback routine and FCN on several evaluation data files. Stores the MME results in a file.
 
 @author: gabahl, bjoj
 """
