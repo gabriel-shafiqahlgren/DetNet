@@ -237,7 +237,6 @@ def get_permutation_match_with_permutations(predictions, labels):
             for m in range(pred_mult):
                 new_pred_index = (maxmult_pred - maxmult_labels + optimal_permutation[m])*3
                 new_predictions[i, new_pred_index: new_pred_index + 3] = get_P_pred(i, available_prediction_j[m]*3)
-                #available_prediction_j.remove(available_prediction_j[m])
                 
             
     
@@ -264,7 +263,7 @@ def spherical_to_cartesian(spherical):
     cartesian[::,2::3] = pz
     return cartesian
 
-def cartesian_to_spherical(cartesian, error=False):
+def cartesian_to_spherical(cartesian, error=False, tol=1e-3, low=-1.0, high=-0.1):
     """
     Coordinate transform (px, py, pz) --> (energy, theta, phi). Used for labels 
     and predictions after training.
@@ -275,15 +274,15 @@ def cartesian_to_spherical(cartesian, error=False):
     pz = cartesian[::,2::3]
     energy = np.sqrt(px*px + py*py + pz*pz)
     
-    tol = 1e-3
     get_theta = lambda z,r: np.arccos(np.divide(z, r, out=np.ones_like(z), where=r>tol))
     get_phi = lambda y,x: np.arctan2(y,x)
     
     if error:
         zero_to_random = 0
     else:
-        zero_to_random = np.random.uniform(low=-1.0, high=-.1, size=np.shape(energy))
-    
+        zero_to_random = np.random.uniform(low, high, size=np.shape(energy))
+
+    #Where E<tol do first, else do second arg, 
     theta = np.where(energy <tol , 0, get_theta(pz, energy))
     phi = np.where(energy <tol , 0, get_phi(py, px))
     energy = np.where(energy <tol , zero_to_random, energy)
@@ -354,6 +353,10 @@ def get_measurement_of_performance(y, y_, spherical=True):
     theta and phi for given predictions and labels.
     
     """
+    
+    assert(y.shape == y_.shape)
+    max_mult = int(y_.shape[1]/3)
+    
     if spherical:
         cart_y = spherical_to_cartesian(y)
         cart_y_ = spherical_to_cartesian(y_)
@@ -376,11 +379,16 @@ def get_measurement_of_performance(y, y_, spherical=True):
     mean = (np.mean(energy_error), np.mean(theta_error), np.mean(phi_error))
     std = (np.std(energy_error), np.std(theta_error), np.std(phi_error))
     
-    P_error = get_momentum_error_dist(cart_y,cart_y_, spherical=False)
+    P_error = np.array(get_momentum_error_dist(cart_y,cart_y_, spherical=False))
     P_mean = np.mean(P_error)
-    P_std = np.std(P_error)    
+    P_std = np.std(P_error)
+    
+    P_err_event = np.sum(P_error.reshape(-1, max_mult), axis=1)
+    event_mean = np.mean(P_err_event)
+    event_std = np.std(P_err_event)
 
-    return {'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std}
+    return {'mean': mean, 'std': std, 'momentum mean': P_mean, 'momentum std': P_std, 
+            'event mean': event_mean, 'event std': event_std}
     
 def save(folder, figure, learning_curve, model):
     folder0 = folder

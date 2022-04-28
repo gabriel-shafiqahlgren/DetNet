@@ -249,7 +249,8 @@ def ResNeXtHybrid(units, group_depth = 1, blocks = 1, skip_fn='relu', no_outputs
 
 def CNN(no_inputs, no_outputs, depth=3, width=80, filters = [256, 16, 4],
         sort = 'CCT', rotations = True, reflections = True, 
-        batch_normalization = True):
+        batch_normalization = True, max_pooling_rotations = False, 
+        max_pooling_reflections = False):
     """
 
     Parameters
@@ -271,6 +272,9 @@ def CNN(no_inputs, no_outputs, depth=3, width=80, filters = [256, 16, 4],
         DESCRIPTION.
 
     """
+    
+    if max_pooling_rotations or max_pooling_reflections:
+        assert(rotations and reflections)
     
     NEIGHBORS_A, NEIGHBORS_D = 16, 19
     
@@ -313,12 +317,29 @@ def CNN(no_inputs, no_outputs, depth=3, width=80, filters = [256, 16, 4],
     x_D = Conv1D(filters[0], NEIGHBORS_D, NEIGHBORS_D, activation='relu', 
                  input_shape = (None, D_in.shape[1], 1), data_format = "channels_last" )(D_in)
     
-    if batch_normalization:
-        x_A = BatchNormalization()(x_A)
-        x_D = BatchNormalization()(x_D)
+    if max_pooling_rotations:
+        x_A = MaxPooling1D(pool_size=no_rotations_A, padding='same')(x_A)
+        x_D = MaxPooling1D(pool_size=no_rotations_D, padding='same')(x_D)
+        
+        if batch_normalization:
+            x_A = BatchNormalization()(x_A)
+            x_D = BatchNormalization()(x_D)
+        
+        x_A = Conv1D(filters[1], kernel_size=2, strides=2, activation='relu')(x_A)
+        x_D = Conv1D(filters[1], kernel_size=2, strides=2, activation='relu')(x_D)
+            
+    else:
+        if batch_normalization:
+            x_A = BatchNormalization()(x_A)
+            x_D = BatchNormalization()(x_D)
+        
+        x_A = Conv1D(filters[1], kernel_size=no_rotations_A, strides=no_rotations_A, activation='relu')(x_A)
+        x_D = Conv1D(filters[1], kernel_size=no_rotations_D, strides=no_rotations_D, activation='relu')(x_D)
+        
+        if max_pooling_reflections:
+            x_A = MaxPooling1D(pool_size=2, padding='same')(x_A)
+            x_D = MaxPooling1D(pool_size=2, padding='same')(x_D)
     
-    x_A = Conv1D(filters[1], no_rotations_A, no_rotations_A, activation='relu')(x_A)
-    x_D = Conv1D(filters[1], no_rotations_D, no_rotations_D, activation='relu')(x_D)
     
     if batch_normalization:
         x_A = BatchNormalization()(x_A)
@@ -421,8 +442,8 @@ def CN_FCN(no_inputs, no_outputs, depth=[3, 3], width=80, filters = [32, 16],
         x_A = BatchNormalization()(x_A)
         x_D = BatchNormalization()(x_D)
         
-    #x_A = MaxPooling1D(pool_size=2)(x_A)
-    #x_D = MaxPooling1D(pool_size=2)(x_D)
+    #x_A = MaxPooling1D(pool_size=2, padding='same')(x_A)
+    #x_D = MaxPooling1D(pool_size=2, padding='same')(x_D)
     
     x_A = Flatten()(x_A)
     x_D = Flatten()(x_D)
