@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Mar 28
-Runs the addback routine and FCN on several evaluation data files. Stores the MME results in a file.
+Runs the addback routine and FCN on several evaluation data files. Stores the MME 
+values in a .txt-file. This is only working for 
 
 @author: gabahl, bjoj
 """
 import os
+import numpy as np
 
 from tensorflow.keras.optimizers import Adam
 from utils.models import FCN, Dense_ResNet
@@ -18,9 +20,9 @@ from loss_function.loss import LossFunction
 from utils.data_preprocess import load_data
 
 from utils.help_methods import get_momentum_error_dist, cartesian_to_spherical, get_permutation_match
-import numpy as np
+from utils.help_methods import spherical_to_cartesian, get_permutation_match_with_permutations
 
-from utils.plot_methods import plot_predictions_bar
+from addback import addback
 
 def main():
     PORTION_ZEROS = 0.05
@@ -48,6 +50,25 @@ def main():
         save_file.write(data_file + ' ')
     save_file.write('\n')
     save_file.close()
+
+    # Go through all evaluation files with the addback routine
+    save_file.open(save_file_name, 'a')
+    save_file.write('Addback ')
+    save_file.close()
+    for data_file in data_files
+        data, labels = load_data(data_file, total_portion=1, portion_zeros=PORTION_ZEROS)
+
+        predictions, maxmult = addback(data, no_neighbors=1, energy_weighted=True, cluster=False)
+        predictions = spherical_to_cartesian(predictions)
+
+        # Minimize the MME/event
+        predictions, labels = get_permutation_match_with_permutations(predictions, labels)
+        labels = reshapeArrayZeroPadding(labels, labels.shape[0], maxmult*3)
+        MME_event = np.sum(get_momentum_error_dist(predictions, labels, False))/len(labels)
+        MME = MME_event/3
+        save_file.open(save_file_name, 'a')
+        save_file.write(MME + ' ')
+        save_file.close()
     
     # Sweep through the FCNs
     for weight_file in weight_files
