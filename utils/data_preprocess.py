@@ -11,7 +11,7 @@ from random import sample
 from .help_methods import spherical_to_cartesian
 
 
-def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=True, classification=False, hinge=False):
+def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=True, classification=False, hinge=False, seed=None):
     """
     Reads a .npz-file from the address string: npz_file that contains simulation 
     data in spherical coordinates. I transforms to cartesian coordinates and
@@ -19,12 +19,22 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
     and also add classification nodes.
     
     """
+    
     if not total_portion > 0 and total_portion <= 1:
         raise ValueError('total_portion must be in the interval (0,1].')
         
-    data_set = np.load(npz_file)
-    det_data = data_set['detector_data']
-    labels = spherical_to_cartesian(data_set['energy_labels'])
+    if isinstance(npz_file,list):
+        data_set_list = [np.load(file) for file in npz_file]
+        det_data_list = [data['detector_data'] for data in data_set_list]
+        labels_list = [spherical_to_cartesian(data['energy_labels']) for data in data_set_list]
+    
+        det_data = np.concatenate((det_data_list), axis=0)
+        labels = np.concatenate((labels_list), axis=0)        
+    else:
+        data_set = np.load(npz_file)
+        det_data = data_set['detector_data']
+        labels = spherical_to_cartesian(data_set['energy_labels'])
+        
     no_events = len(labels)    
     
     if add_zeros and randomize or 0. < portion_zeros < 1. and randomize:
@@ -45,10 +55,10 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
             new_data.append(empty_data)
             new_labels.append(empty_label)
              
-        det_data, labels = randomize_data(new_data, new_labels)
+        det_data, labels = randomize_data(new_data, new_labels, seed=seed)
         
     elif randomize:
-        det_data, labels = randomize_data(det_data, labels) 
+        det_data, labels = randomize_data(det_data, labels, seed=seed) 
         
     elif add_zeros:
         det_data, labels = insert_empty_events(det_data, labels, n=add_zeros)
@@ -65,10 +75,14 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
     return det_data[:no_events], labels[:no_events]
 
 
-def randomize_data(data, labels):
+def randomize_data(data, labels, seed = None):
     data, labels = list(data), list(labels) # Needs to be lists of arrays, otherwise will shuffle in wrong axis.
     print('Shuffling data.')
     combined = list(zip(data, labels))
+    
+    if isinstance(seed, int):
+        random.seed(seed)
+        
     random.shuffle(combined)
     data[:], labels[:] = zip(*combined)
     return np.array(data), np.array(labels)
