@@ -10,8 +10,26 @@ from random import sample
 
 from .help_methods import spherical_to_cartesian
 
+from tensorflow.keras.utils import Sequence
 
-def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=True, classification=False, hinge=False, seed=None):
+np.warnings.filterwarnings('ignore', category=np.VisibleDeprecationWarning) # Hide stupid warning
+
+
+class DataGenerator(Sequence):
+    def __init__(self, det_data, labels, batch_size):
+        self.x, self.y = det_data, labels
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return int(np.ceil(len(self.x) / float(self.batch_size)))
+
+    def __getitem__(self, idx):
+        batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
+        batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
+        return batch_x, batch_y
+
+def load_data(npz_file, total_portion, portions=None,  add_zeros=0, portion_zeros=0.,
+              randomize=True, classification=False, hinge=False, seed=None):
     """
     Reads a .npz-file from the address string: npz_file that contains simulation 
     data in spherical coordinates. I transforms to cartesian coordinates and
@@ -24,14 +42,20 @@ def load_data(npz_file, total_portion, add_zeros=0, portion_zeros=0., randomize=
         raise ValueError('total_portion must be in the interval (0,1].')
         
     if isinstance(npz_file,list):
-        data_set_list = [np.load(file) for file in npz_file]
-        det_data_list = [data['detector_data'] for data in data_set_list]
+        data_set_list = [np.load(file, mmap_mode='r') for file in npz_file]        
+        det_data_list = [data['detector_data'] for data in data_set_list]        
         labels_list = [spherical_to_cartesian(data['energy_labels']) for data in data_set_list]
-    
+        if isinstance(portions, list):
+            no_events_list = [int(len(labels_list[i])*portions[i]) for i in range(len(portions))] 
+            
+            det_data_list = [det_data_list[i][:no_events_list[i]] for i in range(len(portions))]
+            labels_list = [labels_list[i][:no_events_list[i]] for i in range(len(portions))]
+            
         det_data = np.concatenate((det_data_list), axis=0)
-        labels = np.concatenate((labels_list), axis=0)        
+        labels = np.concatenate((labels_list), axis=0) 
+            
     else:
-        data_set = np.load(npz_file)
+        data_set = np.load(npz_file, mmap_mode='r')
         det_data = data_set['detector_data']
         labels = spherical_to_cartesian(data_set['energy_labels'])
         

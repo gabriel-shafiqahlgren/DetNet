@@ -29,7 +29,7 @@ class EarlyStoppingAtMinLoss(callbacks.Callback):
 
     def on_epoch_end(self, epoch, logs=None):
         current = logs.get("val_loss")
-        threshold_lr = 1.4e-6
+        threshold_lr = 1.6e-6
         if epoch > 5 and self.model.optimizer._decayed_lr(float32) < threshold_lr: 
             self.stopped_epoch = epoch
             self.model.stop_training = True
