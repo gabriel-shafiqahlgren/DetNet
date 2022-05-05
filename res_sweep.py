@@ -14,7 +14,7 @@ from utils.models import ResNeXtHybrid
 
 from loss_function.loss import LossFunction
 
-from utils.data_preprocess import load_data, randomize_data
+from utils.data_preprocess import load_data, randomize_data, DataGenerator
 from utils.help_methods import get_no_trainable_parameters
 from utils.help_methods import check_folder
 from utils.help_methods import get_permutation_match
@@ -27,7 +27,7 @@ from utils.help_methods import get_gpu_memory
 from utils.help_methods import save_dictionary_csv
 from utils.help_methods import save_figs
 from utils.help_methods import save_summary
-from numpy import mean, std, linspace, logspace, sort, arange, ceil, zeros
+from numpy import mean, std, linspace, logspace, sort, arange, ceil, zeros, flip, log10
 
 def units_matrix(l, n, kappa, alpha):
     w = len(l)
@@ -53,24 +53,24 @@ STRING_DATAFILE_NAME = 'info.csv'
 LOAD_FILENAME_EVAL = 'eval10_train.npz' #Constant file for testing
 PORTION_ZEROS = 0.05 #portion of loaded data to be made into zero events
 COLLECTIVE_NUMERIC_DATA_FILENAME = 'data_matrix.csv'
-LOAD_FILE_NAME = '3maxmul_0.1_10MeV_3000000_clus300.npz' #3maxmul_0.1_10MeV_3000000_clus300.npz
+LOAD_FILE_NAME = 'training_big_data_all.npz'
+# npz_datafile = os.path.join('/cephyr/NOBACKUP/groups/snic2022-5-74/DetNet/data', '3maxmul_0.1_10MeV_3000000_clus300.npz')
+npz_datafile = '/cephyr/NOBACKUP/groups/snic2022-5-74/training/' +  LOAD_FILE_NAME
 ITERATIONS_PER_DATA_POINT = 1
-SWEEP_NAME = 'decay_g4_nn'
+SWEEP_NAME = 'portion_full_test'
 
 ## --------------- Sweep parameters
 ls_total_port = [1] #portion of file data to be used, (0,1]
-# Depth for each path.
-# ls_units = [units_matrix(path_d, 500, 1, 1)] + [units_matrix(path_d, int(i), 1, 1) for i in linspace(1000,2750, 14)] 
-ls_units = [units_matrix([6,6,6,6], 1500, 1, 1)]
+ls_units = [units_matrix([5,5], 1800, 1, 1)]
 ls_depth = [1]
 ls_group_depth = [1]
-ls_no_epochs = [150]
-ls_no_batch_size = [2**10] #[2**i for i in arange(7,12)]
+ls_no_epochs = [80]
+ls_no_batch_size = [2**10]
 ls_learning_rate = [1e-4]
 ls_blocks = [1]
-ls_decay_steps = linspace(1000,3500, 15)#2500
+ls_decay_steps = [5000]
 
-patience = 8
+patience = 6
 norm_layer = 'none'
 regression_loss = 'absolute'
 
@@ -147,16 +147,19 @@ sweep_folder_path = input_sweep_folder_name(load_filename, SWEEP_NAME)
 iterations = ITERATIONS_PER_DATA_POINT
 
 # Hope ypu have enough RAM
-npz_datafile = os.path.join('/cephyr/NOBACKUP/groups/snic2022-5-74/DetNet/data', load_filename)
+
 npz_datafile_eval = os.path.join('/cephyr/NOBACKUP/groups/snic2022-5-74/eval', LOAD_FILENAME_EVAL)
+npz_datafile_val = os.path.join('/cephyr/NOBACKUP/groups/snic2022-5-74/eval', LOAD_FILENAME_EVAL)
 
 for total_port in ls_total_port:
     #load simulation data for training. OBS. labels need to be ordered in decreasing energy!
     
     #loat simulation data for evaluation. -/-
     eval, eval_ = load_data(npz_datafile_eval, total_portion=1, portion_zeros=PORTION_ZEROS)
-    train, train_ = load_data(npz_datafile, total_port, portion_zeros=PORTION_ZEROS)    
-            
+    val, val_ = load_data(npz_datafile_val, total_portion=1, portion_zeros=PORTION_ZEROS)    
+    train, train_ = load_data(npz_datafile, total_portion=total_port, portions = 1, portion_zeros=PORTION_ZEROS)       
+    
+    
     for decay_steps in ls_decay_steps:
         for units in ls_units:
             for no_epochs in ls_no_epochs:
@@ -164,6 +167,10 @@ for total_port in ls_total_port:
                     for lr_rate in ls_learning_rate:
                         for group_depth in ls_group_depth:
                             for blocks in ls_blocks:
+                                
+                                train_gen = DataGenerator(train, train_, batch_size)
+                                val_gen = DataGenerator(val, val_, batch_size)
+                                
                                 # Dict to save values from all iterations of the data point
                                 dMetrics = {'Loss': [], 
                                             'P Std': [], 
@@ -189,16 +196,13 @@ for total_port in ls_total_port:
                                     # Derived parameters
                                     no_inputs = len(train[0])
                                     no_outputs = len(train_[0])
-#                                         cluster_resolver = SlurmClusterResolver()
-#                                         strategy = MirroredStrategy(cluster_resolver=cluster_resolver)
-
-                                    #strategy = MirroredStrategy()
-                                    #with strategy.scope(): ## for multi gpu single node use
-                                    model = ResNeXtHybrid(units=units,
+                                    
+                                    strategy = MirroredStrategy()
+                                    with strategy.scope(): ## for multi gpu single node use
+                                        model = ResNeXtHybrid(units=units,
                                                           group_depth=group_depth, 
                                                           blocks=blocks,
-                                                          norm_layer=norm_layer,
-                                                          skip_overlap = False)
+                                                          norm_layer=norm_layer)
 
                                     decaying_lr = ExponentialDecay(
                                                     lr_rate,
@@ -222,10 +226,10 @@ for total_port in ls_total_port:
 
                                     ## ----------------- Train the neural network and plot results -----------------
                                     start_time = time()
-                                    training = model.fit(train, train_,
+                                    training = model.fit(train_gen,
                                                          epochs=no_epochs,
                                                          batch_size=batch_size,
-                                                         validation_split=VALIDATION_SPLIT,
+                                                         validation_data=val_gen,
                                                          callbacks=[EarlyStoppingAtMinLoss(patience=patience)])
                                     training_time = time() - start_time
 
@@ -285,8 +289,8 @@ for total_port in ls_total_port:
                                 #Saving data to data point filder
                                 save_dictionary_csv(data_point_path + NUMERIC_DATAFILE_NAME , dict_numeric_data_point_mean)
                                 save_dictionary_csv(data_point_path + STRING_DATAFILE_NAME, dict_str_info_data_point_mean)
-                                save_summary(data_point_path, model)
                                 #Saving numeric data to a file with data from each data point.
+#                                 model.save(data_point_path+'/model')
                                 save_dictionary_csv(sweep_folder_path + COLLECTIVE_NUMERIC_DATA_FILENAME, dict_numeric_data_point_mean)
 
                                 print('Iterations complete')

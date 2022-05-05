@@ -382,7 +382,7 @@ def plot_momentum_error_dist(y, y_, spherical=True):
         
         
 #scatter plot ('lasersvärd' graph) plus one vertical and one horizontal bar of energies near 0
-def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=True):
+def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=True, max_energy = [10,10]):
     start_time = time.time()
     
     # Equation system for left, bottom bar of graph. 
@@ -439,7 +439,6 @@ def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=Tru
     img.append(axs[1].hist2d(events['correct_theta'], events['predicted_theta'], cmap=colormap, bins=bins, norm=LogNorm()))
     img.append(axs[2].hist2d(events['correct_phi'], events['predicted_phi'], cmap=colormap, bins=bins, norm=LogNorm()))
 
-    max_energy = 10
     max_theta = np.pi
     max_phi = 2*np.pi
     line_color = 'blue'
@@ -459,15 +458,15 @@ def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=Tru
         axs[2].scatter(detector_phi, detector_phi, marker='x')
 
 
-    axs[0].set_xlabel(r'Korrekt $ E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_xlabel(r'Korrekt $ \theta$', fontsize = TEXT_SIZE)
-    axs[2].set_xlabel(r'Korrekt $ \phi$', fontsize = TEXT_SIZE)
-    axs[0].set_ylabel(r'Rekonstruerad $E$ [MeV]', fontsize = TEXT_SIZE)
-    axs[1].set_ylabel(r'Rekonstruerad $ \theta$', fontsize = TEXT_SIZE)
-    axs[2].set_ylabel(r'Rekonstruerad $ \phi$', fontsize = TEXT_SIZE)
+    axs[0].set_xlabel('Korrekt $\hat{E}$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_xlabel('Korrekt $\hat{\\theta}$', fontsize = TEXT_SIZE)
+    axs[2].set_xlabel('Korrekt $\hat{\phi}$', fontsize = TEXT_SIZE)
+    axs[0].set_ylabel('Rekonstruerad $E$ [MeV]', fontsize = TEXT_SIZE)
+    axs[1].set_ylabel('Rekonstruerad $\\theta$', fontsize = TEXT_SIZE)
+    axs[2].set_ylabel('Rekonstruerad $\phi$', fontsize = TEXT_SIZE)
 
-    axs[0].set_xlim([depth, max_energy])
-    axs[0].set_ylim([depth, max_energy])
+    axs[0].set_xlim([depth, max_energy[0]])
+    axs[0].set_ylim([depth, max_energy[1]])
     axs[0].set_aspect('equal', 'box')
     axs[1].set_xlim([0, max_theta])
     axs[1].set_ylim([0, max_theta])
@@ -491,8 +490,8 @@ def plot_predictions_bar(y, y_, epsilon=0.06, bins=500, show_detector_angles=Tru
     axs[2].tick_params(axis='both', which='major', labelsize=TEXT_SIZE)
 
     plt.sca(axs[0])
-    plt.xticks(np.linspace(0, 10, 6),['0','2','4','6','8','10'])
-    plt.yticks(np.linspace(0, 10, 6),['0','2','4','6','8','10'])
+    plt.xticks(np.linspace(0, max_energy[0], 6))
+    plt.yticks(np.linspace(0, max_energy[1], 6))
 
     plt.sca(axs[1])
     plt.xticks(np.linspace(0, np.pi, 3),['0','$\pi/2$','$\pi$'])

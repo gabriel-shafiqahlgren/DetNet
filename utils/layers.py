@@ -97,8 +97,7 @@ class ListDense(Layer):
                  units,    
                  list_depth):
         super(ListDense, self).__init__()    
-        
-        self.units = units
+
         self.list_depth = list_depth        
         self.layers = [Dense(units, activation='relu') for i in range(list_depth)]
         
@@ -120,10 +119,7 @@ class GroupDense(Layer):
                  list_depth):
         super(GroupDense, self).__init__()
 
-        self.units = units
-        self.groups = groups
-        self.list_depth = list_depth
-        
+        self.groups = groups        
         self.list_dense = [ListDense(units, list_depth) for i in range(groups)]
 
     def call(self, inputs):
@@ -189,17 +185,18 @@ def ResNeXt_block(units, groups, group_depth, list_depth, repeat_num, batch_norm
 class ListDenseHybrid(Layer):
     '''
     A ResNet model with a possible normalization layer.    
+    Can have batch norm OR layer norm with weight norm, not all at once.
     '''
     def __init__(self,  
                  units,
-                 norm_layer): # units: a vector that contains the # of neurons
-                         # for each layer.
+                 norm_layer): 
         super(ListDenseHybrid, self).__init__()    
-                
+        
+        self.skip = True            
+        print('Internal skip:', self.skip)
         self.list_depth = len(units) 
-        self.units = units     
         self.layers = [Dense(units[i],activation='relu') for i in range(self.list_depth)]        
-        self.norm = False
+        self.norm = False        
         
         if 'batch_norm' in norm_layer:    
             self.norm, self.normalization_layer = True, BatchNormalization()
@@ -209,33 +206,54 @@ class ListDenseHybrid(Layer):
             self.norm, self.normalization_layer = True, Normalization()
             print('Layer normalization.')
             
-        elif 'weight_norm' in norm_layer:
-            self.norm, self.normalization_layer = True, WeightNormalization(Dense(units[list_depth[0]-1,0] * self.groups))
+        if 'weight_norm' in norm_layer:
+            self.layers = [WeightNormalization(Dense(units[i],activation='relu')) for i in range(self.list_depth)] 
             print('Weight normalization.')
-        
+            
         
     def call(self, inputs):        
-        if self.list_depth > 4:       
+
+        if self.list_depth > 4:            
             x = self.layers[0](inputs)        
+            
+            if self.norm:
+                x = self.normalization_layer(x)
+                
             x = self.layers[1](x)      
+            
+            if self.norm:
+                x = self.normalization_layer(x)
+                
             x = self.layers[2](x)             
             
             if self.norm:
                 x = self.normalization_layer(x)
             
-            x_m = x = self.layers[3](add([inputs, x]))
+            if self.skip:
+                x_m = x = self.layers[3](add([inputs, x]))
+            else:
+                x = self.layers[3](x)
 
             for i in range(4,self.list_depth):     
-                x = self.layers[i](x)  
+                x = self.layers[i](x)       
+                
+                if self.norm:
+                    x = self.normalization_layer(x)
         else:
-            x_m = inputs
-            x  = self.layers[0](inputs)               
+            x_m = x = self.layers[0](inputs)               
             if self.norm:
                 x = self.normalization_layer(x)
             
             for i in range(1,self.list_depth):     
-                x = self.layers[i](x)      
-        return add([x_m,x])
+                x = self.layers[i](x)     
+                
+                if self.norm:
+                    x = self.normalization_layer(x)
+                    
+        if self.skip:
+            return add([x_m,x])
+        else:
+            return x
     
 
 class GroupDenseHybrid(Layer):
@@ -246,20 +264,27 @@ class GroupDenseHybrid(Layer):
                  skip_fn = 'relu',
                  norm_layer = None): 
         super(GroupDenseHybrid, self).__init__()
-
-        self.units = units # Matrix
+        self.skip_group = True
+        print('Skip group:', self.skip_group)
         self.groups = groups # Int
         self.skip_fn = skip_fn        
-        self.list_dense = [ListDenseHybrid(units[0:list_depth[i],i], norm_layer) for i in range(groups)]
+        self.list_dense_hybrid = [ListDenseHybrid(units[0:list_depth[i],i], norm_layer) for i in range(groups)]
         self.activation_functions = {'relu': relu, 'elu': elu, 'gelu':  gelu, 'softsign': softsign,
                                     'softmax': softmax, 'log_softmax': log_softmax, 'linear': linear}
      
     def call(self, inputs):
         feature_map_list = []
-        for i in range(self.groups):
-            x_i = self.list_dense[i](split(inputs,self.groups,axis=1)[i])
-            feature_map_list.append(self.activation_functions[self.skip_fn](x_i))
-        out = concat(feature_map_list, axis=-1)
+        if self.skip_group:
+            for i in range(self.groups):
+                x_i = self.list_dense_hybrid[i](split(inputs,self.groups,axis=1)[i])
+                feature_map_list.append(self.activation_functions[self.skip_fn](add([x_i, split(inputs,self.groups,axis=1)[i]])))
+            out = concat(feature_map_list, axis=-1)
+            
+        else:
+            for i in range(self.groups):
+                x_i = self.list_dense_hybrid[i](split(inputs,self.groups,axis=1)[i])
+                feature_map_list.append(self.activation_functions[self.skip_fn](x_i))
+            out = concat(feature_map_list, axis=-1)
         return out
 
 class ResNeXtHybrid(Layer):
@@ -281,6 +306,8 @@ class ResNeXtHybrid(Layer):
                  norm_layer,
                  skip_fn = 'relu'):
         super(ResNeXtHybrid, self).__init__()
+        self.external_skip = False
+        print('Ext. skip:', self.external_skip)
         
         def addPadding(units):
             # Need to reshape the units matrix. The network
@@ -346,7 +373,11 @@ class ResNeXtHybrid(Layer):
         for i in range(1,self.group_depth):
             x = self.group_dense_list[i](x)
             
-        output = relu(add([x, x0]))
+        if self.external_skip:
+            output = relu(add([x, x0]))
+        else:
+            output = x
+            
         return output
     
 def ResNeXt_hybrid_block(units, group_depth, repeat_num, skip_fn, norm_layer):
