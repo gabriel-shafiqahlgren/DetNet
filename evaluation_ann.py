@@ -43,8 +43,6 @@ def main():
     data_directory = 'evaluation_files'
     data_files = Path(data_directory).rglob('*.npz')
     data_dir = glob.glob(os.path.join(data_directory, '*.npz'))
-    
-    print(data_files)
 
     # The file that the MME:s will be stored
     save_file_name = 'mme_table.txt'
@@ -91,9 +89,9 @@ def main():
     for model in sorted(os.listdir(model_directory)):
         print(model)
         if os.path.isdir(model)==False:
-            model = keras.models.load_model(model, compile=False)
+            model = keras.models.load_model(model_directory + model, compile=False)
             save_file = open(save_file_name, 'a')
-            save_file.write('\n' + str(model_file) + ' ')
+            save_file.write('\n' + str(model) + ' ')
             save_file.close()
         
             # Go through all evaluation files for each FCN model
