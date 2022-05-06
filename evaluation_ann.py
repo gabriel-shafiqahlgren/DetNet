@@ -86,12 +86,11 @@ def main():
     # Sweep through the FCNs
     #for model_file in os.scandir(model_directory):
     # if model_file.path.endswith(model_ext):
-    for model in sorted(os.listdir(model_directory)):
-        print(model)
-        if os.path.isdir(model)==False:
-            model = keras.models.load_model(model_directory + model, compile=False)
+    for model_name in sorted(os.listdir(model_directory)):
+        if os.path.isdir(model_name)==False:
+            model = keras.models.load_model(model_directory + model_name, compile=False)
             save_file = open(save_file_name, 'a')
-            save_file.write('\n' + str(model) + ' ')
+            save_file.write('\n' + str(model_name) + ' ')
             save_file.close()
         
             # Go through all evaluation files for each FCN model
@@ -117,7 +116,7 @@ def main():
                 eval_name = data_file
                 eval_name = eval_name.replace('.npz','')
                 eval_name = eval_name.replace('/','')
-                dist_ANN = open(model._name + '_' + str(model_file) + '_' + eval_name + '_mme_dist.txt', 'a')
+                dist_ANN = open(model._name + '_' + str(model_name) + '_' + eval_name + '_mme_dist.txt', 'a')
                 dist_ANN.write(str(ME_dist))
                 dist_ANN.close()
                 print('Total momentum error = ', np.sum(ME_dist))
