@@ -1,16 +1,18 @@
 from numpy import less, Inf
 from tensorflow.keras import callbacks
-
+from tensorflow import float32
 class EarlyStoppingAtMinLoss(callbacks.Callback):
     """
     Stop training when the val_loss has not decreased for a certain number of epochs, 
-    importantly for decaying learning rate: if val_loss remains constant it stops.
-
+    importantly for decaying learning rate: if val_loss remains constant or
+    if learning rate reaches the threshold value it stops.
+    
     Restores model weights to the one with lowest validated loss.
+    
   Arguments:
-      patience: Number of epochs to wait after min has been hit. After this
-      number of no improvement, training stops.
-  """
+    patience: Number of epochs to wait after min has been hit. After this
+    number of no improvement, training stops.
+    """
     def __init__(self, patience=0):
         super(EarlyStoppingAtMinLoss, self).__init__()
         self.patience = patience
@@ -26,19 +28,24 @@ class EarlyStoppingAtMinLoss(callbacks.Callback):
         self.best = Inf
 
     def on_epoch_end(self, epoch, logs=None):
-        current = logs.get("val_loss")    
+        current = logs.get("val_loss")
+        threshold_lr = 1.6e-6
+        if epoch > 5 and self.model.optimizer._decayed_lr(float32) < threshold_lr: 
+            self.stopped_epoch = epoch
+            self.model.stop_training = True
+            print("\n Learning rate reached {}. Restoring model weights from best epoch... \n".format(threshold_lr))
+            self.model.set_weights(self.best_weights)
         if less(current, self.best): #Only less than, equality is not enough.
             self.best = current
             self.wait = 0
             # Record the best weights if current results is better (less).
-            self.best_weights = self.model.get_weights()
-            
+            self.best_weights = self.model.get_weights()            
         else:
             self.wait += 1
             if self.wait >= self.patience:
                 self.stopped_epoch = epoch
                 self.model.stop_training = True
-                print("\n Restoring model weights from the end of the best epoch. \n")
+                print("\n Restoring model weights from the end of the best epoch... \n")
                 self.model.set_weights(self.best_weights)
 
     def on_train_end(self, logs=None):
