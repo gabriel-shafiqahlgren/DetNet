@@ -14,11 +14,13 @@ from loss_function.loss_functions import squared_error
 from loss_function.loss_functions import absolute_error
 from loss_function.loss_functions import huber_loss
 from loss_function.loss_functions import pseudo_huber_loss
+from loss_function.loss_functions import log_error
 
 REGRESSION_LOSS = {'squared':   squared_error,  # default
                    'absolute':  absolute_error,
                    'huber':     huber_loss,
-                   'pseudo':    pseudo_huber_loss}
+                   'pseudo':    pseudo_huber_loss,
+                   'log':       log_error}
 
 from loss_function.loss_functions import binary_cross_entropy
 from loss_function.loss_functions import hinge_loss
@@ -48,7 +50,7 @@ class LossFunction(object):
 
         regression_loss :           Loss function used in the momentum
                                     regression with {'squared', 'absolute',
-                                    'huber', 'pseudo'}.
+                                    'huber', 'pseudo', 'log'}.
 
         classification_loss :       Loss function used in the logistic
                                     regression with {'cross_entropy', 'hinge',

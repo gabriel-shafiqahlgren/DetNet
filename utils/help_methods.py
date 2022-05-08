@@ -346,6 +346,9 @@ def MSE(y, y_, spherical=True):
     squared_error = [np.dot(P[:,i],P[:,i]) for i in range(P.shape[1])]
     return np.mean(squared_error)
 
+def RMSE(y, y_, spherical=True):
+    return np.sqrt(MSE(y, y_, spherical=spherical))
+
 
 def get_measurement_of_performance(y, y_, spherical=True):
     """
@@ -379,10 +382,11 @@ def get_measurement_of_performance(y, y_, spherical=True):
     mean = (np.mean(energy_error), np.mean(theta_error), np.mean(phi_error))
     std = (np.std(energy_error), np.std(theta_error), np.std(phi_error))
     
-    P_error = np.array(get_momentum_error_dist(cart_y,cart_y_, spherical=False))
+    P_error = get_momentum_error_dist(cart_y,cart_y_, spherical=False)
     P_mean = np.mean(P_error)
     P_std = np.std(P_error)
-    
+
+    P_error = np.array(P_error)
     P_err_event = np.sum(P_error.reshape(-1, max_mult), axis=1)
     event_mean = np.mean(P_err_event)
     event_std = np.std(P_err_event)

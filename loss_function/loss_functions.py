@@ -5,8 +5,10 @@
 """
 from tensorflow.keras.backend import square
 from tensorflow.keras.backend import sqrt
+from tensorflow.keras.backend import abs
 from tensorflow.keras.backend import log
 from tensorflow.math import maximum
+from tensorflow import where
 
 
 DELTA = 1
@@ -29,6 +31,16 @@ def absolute_error(px, py, pz, px_, py_, pz_):
     return sqrt(maximum(squared_error(px, py, pz, px_, py_, pz_), 1e-20))
 
 
+def log_error(px, py, pz, px_, py_, pz_):
+    """
+    Uses the logarithm to increase sensitivity to small energies.
+    The hope is that this will make the networks perform better for small E.
+    
+    """
+    return log(1 + absolute_error(px, py, pz, px_, py_, pz_))
+    
+    
+
 ## OBS. NOT USING KERAS STUFF...
 def huber_loss(px, py, pz, px_, py_, pz_):
     """
@@ -36,11 +48,11 @@ def huber_loss(px, py, pz, px_, py_, pz_):
     sensitive to outliers in data than the squared_error loss.
     
     """
-    error = squared_error(px, py, pz, px_, py_, pz_)
-    if error <= DELTA**2:
-        return .5*error
-    else:
-        return DELTA*(sqrt(error) - .5*DELTA)
+    error = sqrt(maximum(squared_error(px, py, pz, px_, py_, pz_), 1e-20))
+    cond = error < DELTA
+    squared_loss = 0.5 * square(error)
+    linear_loss  = DELTA * (error - 0.5*DELTA)
+    return where(cond, squared_loss, linear_loss)
     
     
 def pseudo_huber_loss(px, py, pz, px_, py_, pz_):
