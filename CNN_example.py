@@ -23,7 +23,6 @@ from loss_function.loss import LossFunction
 from utils.data_preprocess import load_data, get_eval_data
 from utils.help_methods import get_permutation_match, cartesian_to_spherical, get_measurement_of_performance, get_momentum_error_dist
 from contextlib import redirect_stdout
-from utils.plot_methods import plot_predictions
 
 
 ## ----------------------------- PARAMETERS -----------------------------------
@@ -39,7 +38,7 @@ VALIDATION_SPLIT = 0.1                          #portion of training data for ep
 CARTESIAN = True                                #train with cartesian coordinates instead of spherical
 CLASSIFICATION = False                          #train with classification nodes
 
-NO_EPOCHS = 50
+NO_EPOCHS = 700
                                                #Number of times to go through training data
 BATCH_SIZE = 2**8                                #The training batch size
 LEARNING_RATE = 1e-4                            #Learning rate/step size
@@ -48,8 +47,8 @@ MAT_SORT = "CCT"                                #type of sorting used for the co
 USE_ROTATIONS = True   
 USE_REFLECTIONS = True
 NAME = sys.argv[1]
-MAX_POOLING_ROTATIONS = True
-MAX_POOLING_REFLECTIONS = False
+MAX_POOLING_ROTATIONS = False
+MAX_POOLING_REFLECTIONS = True
 
 
 USE_BATCH_NORMALIZATION = True 
@@ -120,18 +119,14 @@ def main():
     
     if PERMUTATION:
         predictions, eval_labels = get_permutation_match(predictions, eval_labels, loss, max_mult)
-        
-        
+
     
     if CARTESIAN:
         P_error_dist = get_momentum_error_dist(predictions, eval_labels, spherical=False)
         print('MME = ' + str(np.mean(P_error_dist)))
         print('ME per event = ' + str(np.sum(P_error_dist)/eval_labels.shape[0]))
         predictions = cartesian_to_spherical(predictions)
-        eval_labels = cartesian_to_spherical(eval_labels)    
-   
-        
-    figure, rec_events = plot_predictions(predictions, eval_labels)
+        eval_labels = cartesian_to_spherical(eval_labels)
     
     #save weights
     model.save_weights(folder+'/weights.h5')
@@ -182,7 +177,7 @@ def main():
     print(meas_perf['momentum mean'])
     print(meas_perf['momentum mean']*3)
     np.save(folder+'/mop',meas_perf)
-    save_dictionary_csv(folder + '/dict.csv' )
+    save_dictionary_csv(folder + '/dict.csv', dct_Data)
     return
 
 if __name__ == '__main__':

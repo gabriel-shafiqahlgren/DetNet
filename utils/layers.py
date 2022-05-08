@@ -9,14 +9,14 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Layer
 from tensorflow.keras.layers import Add
 from tensorflow.keras.layers import add
-from tensorflow_addons.layers import WeightNormalization
+#from tensorflow_addons.layers import WeightNormalization
 from tensorflow.keras.layers import BatchNormalization
 from keras.layers import Normalization
 
 from tensorflow.keras.layers import Activation
 from tensorflow.keras import activations
 from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import Dense, Conv1D, MaxPooling1D
 from tensorflow.nn import relu, softsign, softmax, gelu, log_softmax, log_poisson_loss, elu
 from tensorflow.keras.activations import linear
 from tensorflow import concat
@@ -356,3 +356,34 @@ def ResNeXt_hybrid_block(units, group_depth, repeat_num, skip_fn, norm_layer):
                                 skip_fn=skip_fn))
 
     return block
+
+def convolution_max_pool_block(inputs, filters, block_layers, batch_normalization=True):
+
+    if batch_normalization:
+        x = BatchNormalization()(x)
+    x = Conv1D(filters, kernel_size=3, strides=1, padding='same', activation='relu')(inputs)
+        
+    for i in range(block_layers-1):
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        x = Conv1D(filters, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+        
+    x = MaxPooling1D(pool_size=2, strides=2, padding='same')(x)
+    return x
+
+def convolution_max_pool_res_block(inputs, filters, block_layers, batch_normalization=True):
+    res = inputs
+
+    if batch_normalization:
+        inputs = BatchNormalization()(inputs)
+    x = Conv1D(filters, kernel_size=3, strides=1, padding='same', activation='relu')(inputs)
+        
+    for i in range(block_layers-1):
+        if batch_normalization:
+            x = BatchNormalization()(x)
+        x = Conv1D(filters, kernel_size=3, strides=1, padding='same', activation='relu')(x)
+
+    x = MaxPooling1D(pool_size=2, strides=2, padding='same')(x)
+    res = Conv1D(filters, kernel_size=1, strides=2, activation='relu')(res)
+    x = Add()([x, res])
+    return x
